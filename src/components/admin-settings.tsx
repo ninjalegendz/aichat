@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import type { Settings } from "@/lib/types";
-import { BrainCog, Loader2, Save } from "lucide-react";
+import { ArrowLeft, BrainCog, Loader2, Save } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 
 export function AdminSettings() {
@@ -132,7 +133,13 @@ export function AdminSettings() {
             <p className="text-xs text-muted-foreground">Provide context that the AI can use to answer questions. Use a simple Q&A format for best results.</p>
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex justify-between items-center pt-4">
+             <Link href="/admin">
+                <Button variant="outline">
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Back to Dashboard
+                </Button>
+            </Link>
             <Button onClick={handleSaveChanges} disabled={isSaving}>
               {isSaving ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

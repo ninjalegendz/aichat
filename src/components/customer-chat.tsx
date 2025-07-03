@@ -3,7 +3,7 @@
 
 import type { Message, Settings, Ticket } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { ArrowUp, BrainCircuit, Loader2, Paperclip, ShoppingCart } from "lucide-react";
+import { ArrowUp, BrainCircuit, File as FileIcon, FileImage, Loader2, Paperclip, X } from "lucide-react";
 import { useEffect, useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -15,7 +15,7 @@ import { Textarea } from "./ui/textarea";
 import { getAiResponse, getSettingsAction, handleFileUploadAction } from "@/app/actions";
 import { format } from "date-fns";
 import { db } from "@/lib/firebase";
-import { addMessage, updateTicket } from "@/lib/firestore-service";
+import { addMessage } from "@/lib/firestore-service";
 import {
   collection,
   query,
@@ -24,7 +24,6 @@ import {
   doc,
   Timestamp,
 } from "firebase/firestore";
-import { Input } from "./ui/input";
 import { useToast } from "@/hooks/use-toast";
 
 const TypingIndicator = () => (
@@ -40,11 +39,10 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isAiTyping, setIsAiTyping] = useState(false);
-  const [isPending, startTransition] = useTransition();
-  const [showOrderInput, setShowOrderInput] = useState(false);
-  const [orderNumber, setOrderNumber] = useState("");
+  const [isSending, startSendingTransition] = useTransition();
   const [settings, setSettings] = useState<Partial<Settings>>({});
   const { toast } = useToast();
+  const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -103,94 +101,67 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
   }, [messages]);
 
   const handleSendMessage = async () => {
-    if (!input.trim() || !ticket) return;
+    if (!ticket) return;
+    const textToSend = input.trim();
+    const filesToSend = [...filesToUpload];
+    if (!textToSend && filesToSend.length === 0) return;
 
-    const userMessage: Omit<Message, "id" | "createdAt"> = {
-      role: "user",
-      content: input,
-    };
+    setInput('');
+    setFilesToUpload([]);
 
-    const currentInput = input;
-    setInput("");
-    await addMessage(ticketId, userMessage);
+    startSendingTransition(async () => {
+      if (ticket.status === 'ai') {
+        setIsAiTyping(true);
+      }
 
-    if (ticket.status === "ai") {
-      setIsAiTyping(true);
-      startTransition(async () => {
-        const tempUserMessage = { ...userMessage, id: 'temp', createdAt: new Date().toISOString() };
-        const chatHistory = [...messages, tempUserMessage]
+      // Upload files first, each as a separate message
+      for (const file of filesToSend) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('ticketId', ticketId);
+        formData.append('role', 'user');
+        await handleFileUploadAction(formData);
+      }
+
+      // Then, send the text message if it exists
+      if (textToSend) {
+        await addMessage(ticketId, { role: 'user', content: textToSend });
+      }
+
+      // If the ticket is handled by AI, get a response
+      if (ticket.status === 'ai') {
+        const tempUserMessage = { role: 'user', content: textToSend, id: 'temp-user', createdAt: new Date().toISOString() };
+        const tempFileMessages = filesToSend.map((file, i) => ({ role: 'user', content: `[User uploaded file: ${file.name}]`, id: `temp-file-${i}`, createdAt: new Date().toISOString() }));
+        
+        const chatHistoryForAI = [...messages, ...tempFileMessages, tempUserMessage]
           .map((m) => `${m.role}: ${m.content}`)
           .join("\n");
-        const aiResponseContent = await getAiResponse(currentInput, chatHistory);
 
-        const aiMessage: Omit<Message, "id" | "createdAt"> = {
-          role: "assistant",
-          content: aiResponseContent,
-        };
-
-        await addMessage(ticketId, aiMessage);
+        const aiQuery = [textToSend, ...filesToSend.map(f => `[user uploaded file: ${f.name}]`)].filter(Boolean).join('\n');
+        
+        const aiResponseContent = await getAiResponse(aiQuery, chatHistoryForAI, ticketId);
+        
+        await addMessage(ticketId, { role: "assistant", content: aiResponseContent });
         setIsAiTyping(false);
-      });
-    }
-  };
-  
-  const handleOrderSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!orderNumber.trim() || !ticket) return;
-
-    startTransition(async () => {
-      await updateTicket(ticketId, { orderNumber });
-      const orderMessage: Omit<Message, "id" | "createdAt"> = {
-        role: 'user',
-        content: `Checking status for order #${orderNumber}`
-      };
-      await addMessage(ticketId, orderMessage);
-      
-      const aiResponseContent = await getAiResponse(
-        `The user wants to know the status of order #${orderNumber}.`,
-        ''
-      );
-
-      const aiMessage: Omit<Message, "id" | "createdAt"> = {
-        role: "assistant",
-        content: aiResponseContent,
-      };
-
-      await addMessage(ticketId, aiMessage);
-      
-      setOrderNumber("");
-      setShowOrderInput(false);
-      toast({
-        title: "Order number submitted",
-        description: "An agent will verify your order details shortly.",
-      });
+      }
     });
-  }
+  };
 
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('ticketId', ticketId);
-    formData.append('role', 'user');
-
-    toast({ title: 'Uploading file...', description: file.name });
-    try {
-        startTransition(async () => {
-             await handleFileUploadAction(formData);
-             toast({ title: 'Upload successful', description: 'Your file has been sent.' });
-        });
-    } catch (error) {
-        toast({ variant: 'destructive', title: 'Upload failed', description: 'Could not upload your file.' });
-        console.error("File upload failed:", error);
-    }
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
+    
+    setFilesToUpload(prev => [...prev, ...files]);
+    toast({ title: `${files.length} file(s) ready for upload.` });
     
     if (fileInputRef.current) {
         fileInputRef.current.value = "";
     }
   };
+
+  const removeFileToUpload = (fileToRemove: File) => {
+    setFilesToUpload(prev => prev.filter(file => file !== fileToRemove));
+  }
 
 
   return (
@@ -287,34 +258,22 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
             </div>
           </ScrollArea>
           <div className="p-4 border-t bg-background/80">
-            {ticket?.status !== 'closed' && (
-              <>
-                {!showOrderInput ? (
-                   <div className="mb-2 flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setShowOrderInput(true)}>
-                      <ShoppingCart className="mr-2 h-4 w-4"/>
-                      Order Status
-                    </Button>
-                  </div>
-                ) : (
-                  <form onSubmit={handleOrderSubmit} className="flex items-center gap-2 mb-2 animate-in fade-in-20">
-                     <Input
-                        value={orderNumber}
-                        onChange={(e) => setOrderNumber(e.target.value)}
-                        placeholder="Enter 4 digits from your order #, e.g. 1234"
-                        pattern="\d{4}"
-                        maxLength={4}
-                        className="flex-1"
-                        required
-                        disabled={isPending}
-                      />
-                    <Button type="submit" size="sm" disabled={isPending}>Submit</Button>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => setShowOrderInput(false)}>Cancel</Button>
-                  </form>
-                )}
-              </>
+            {filesToUpload.length > 0 && (
+                <div className="mb-2 p-2 border rounded-md">
+                    <p className="text-xs font-medium mb-2 text-muted-foreground">Files to upload:</p>
+                    <div className="flex flex-wrap gap-2">
+                    {filesToUpload.map((file, index) => (
+                        <div key={index} className="flex items-center gap-2 p-1.5 rounded-md bg-muted text-sm text-muted-foreground">
+                        {file.type.startsWith('image/') ? <FileImage className="w-4 h-4 text-primary" /> : <FileIcon className="w-4 h-4 text-muted-foreground" />}
+                        <span className="max-w-[150px] truncate">{file.name}</span>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeFileToUpload(file)}>
+                            <X className="w-4 h-4" />
+                        </Button>
+                        </div>
+                    ))}
+                    </div>
+                </div>
             )}
-
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -322,8 +281,8 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
               }}
               className="flex items-center gap-2"
             >
-              <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*,.pdf"/>
-               <Button type="button" variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isPending || isAiTyping || ticket?.status === 'closed'}>
+              <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*,.pdf" multiple/>
+               <Button type="button" variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isSending || ticket?.status === 'closed'}>
                   <Paperclip className="w-5 h-5"/>
               </Button>
               <Textarea
@@ -338,14 +297,14 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
                     handleSendMessage();
                   }
                 }}
-                disabled={isPending || isAiTyping || ticket?.status === 'closed'}
+                disabled={isSending || ticket?.status === 'closed'}
               />
               <Button
                 type="submit"
                 size="icon"
-                disabled={!input.trim() || isPending || isAiTyping || ticket?.status === 'closed'}
+                disabled={(!input.trim() && filesToUpload.length === 0) || isSending || ticket?.status === 'closed'}
               >
-                {isPending ? <Loader2 className="w-5 h-5 animate-spin"/> : <ArrowUp className="w-5 h-5" />}
+                {isSending ? <Loader2 className="w-5 h-5 animate-spin"/> : <ArrowUp className="w-5 h-5" />}
               </Button>
             </form>
           </div>

@@ -11,12 +11,14 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { saveOrderNumber } from '../tools/save-order-tool';
 
 const InitialResponseInputSchema = z.object({
-  currentQuery: z.string().describe('The latest customer message.'),
+  currentQuery: z.string().describe('The latest customer message, which may include text and references to uploaded files.'),
   chatHistory: z.string().optional().describe('The full conversation history.'),
   knowledgeBase: z.string().optional().describe('Contextual knowledge base to inform the response.'),
   systemPrompt: z.string().optional().describe('The system prompt that defines the AIs behavior.'),
+  ticketId: z.string().describe('The ID of the current support ticket.'),
 });
 
 export type InitialResponseInput = z.infer<typeof InitialResponseInputSchema>;
@@ -40,10 +42,11 @@ const initialResponseFlow = ai.defineFlow(
   async (input) => {
     const {output} = await ai.generate({
         system: input.systemPrompt,
-        prompt: `Knowledge Base:\n${input.knowledgeBase}\n\nChat History:\n${input.chatHistory}\n\nNew User Message: ${input.currentQuery}`,
+        prompt: `Ticket ID: ${input.ticketId}\n\nKnowledge Base:\n${input.knowledgeBase}\n\nChat History:\n${input.chatHistory}\n\nNew User Message: ${input.currentQuery}`,
         output: {
             schema: InitialResponseOutputSchema,
         },
+        tools: [saveOrderNumber],
     });
     return output!;
   }

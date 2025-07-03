@@ -9,7 +9,7 @@ import { storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 
-export async function getAiResponse(query: string, chatHistory: string) {
+export async function getAiResponse(query: string, chatHistory: string, ticketId: string) {
   try {
     const settings = await getSettings();
     const response = await initialResponse({
@@ -17,6 +17,7 @@ export async function getAiResponse(query: string, chatHistory: string) {
       chatHistory: chatHistory,
       knowledgeBase: settings.knowledgeBase,
       systemPrompt: settings.systemPrompt,
+      ticketId: ticketId,
     });
     return response.response;
   } catch (error) {
@@ -73,7 +74,7 @@ export async function handleFileUploadAction(formData: FormData) {
 
     await addMessage(ticketId, {
         role: role,
-        content: ``,
+        content: '',
         attachment: attachment
     });
 
