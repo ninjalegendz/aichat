@@ -262,8 +262,8 @@ export function AdminDashboard() {
       setIsSaving(false);
     }
   };
-
-  const handleLogout = async () => {
+  
+  const reassignAgentTicketsToAI = async () => {
     const agentTickets = tickets.filter((t) => t.status === 'agent');
     if (agentTickets.length > 0) {
         const updatePromises = agentTickets.map((ticket) =>
@@ -271,9 +271,29 @@ export function AdminDashboard() {
         );
         await Promise.all(updatePromises);
     }
+  };
+
+  const handleLogout = async () => {
+    await reassignAgentTicketsToAI();
     await signOut(auth);
     router.push("/admin/login");
   };
+
+  // Effect to handle browser close/refresh for ticket reassignment
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // This is a "best-effort" attempt to reassign tickets.
+      // Modern browsers may not wait for the async operations to complete.
+      reassignAgentTicketsToAI();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [tickets]); // Dependency ensures the handler has the latest tickets list.
+
 
   return (
     <SidebarProvider>
