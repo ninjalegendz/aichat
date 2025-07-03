@@ -14,7 +14,7 @@ import { Textarea } from "./ui/textarea";
 import { getAiResponse, getSettingsAction } from "@/app/actions";
 import { format } from "date-fns";
 import { db } from "@/lib/firebase";
-import { addMessage } from "@/lib/firestore-service";
+import { addMessage, updateTicket } from "@/lib/firestore-service";
 import {
   collection,
   query,
@@ -33,13 +33,23 @@ const TypingIndicator = () => (
   </div>
 );
 
+const AgentConnectionStatus = ({ agentName }: { agentName: string }) => (
+    <div className="text-center text-xs text-muted-foreground py-2 px-6">
+        <p className="bg-muted inline-block px-3 py-1 rounded-full animate-in fade-in">
+            {agentName || 'An agent'} has connected to the chat.
+        </p>
+    </div>
+);
+
 export function CustomerChat({ ticketId }: { ticketId: string }) {
   const [ticket, setTicket] = useState<Ticket | null>(null);
+  const ticketRef = useRef<Ticket | null>(null); // To track previous state
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isAiTyping, setIsAiTyping] = useState(false);
   const [isSending, startSendingTransition] = useTransition();
   const [settings, setSettings] = useState<Partial<Settings>>({});
+  const [showAgentConnected, setShowAgentConnected] = useState(false);
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
@@ -55,15 +65,25 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
   useEffect(() => {
     getSettingsAction().then(setSettings);
 
-    const ticketRef = doc(db, "tickets", ticketId);
-    const unsubscribeTicket = onSnapshot(ticketRef, (docSnap) => {
+    const ticketDocRef = doc(db, "tickets", ticketId);
+    const unsubscribeTicket = onSnapshot(ticketDocRef, (docSnap) => {
       if (docSnap.exists()) {
-        const data = docSnap.data();
-        setTicket({
+        const oldTicket = ticketRef.current;
+        const newTicketData = docSnap.data();
+        const newTicket = {
           id: docSnap.id,
-          ...data,
-          lastUpdate: (data.lastUpdate as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
-        } as Ticket);
+          ...newTicketData,
+          lastUpdate: (newTicketData.lastUpdate as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+        } as Ticket;
+
+        // Check if agent just connected
+        if (oldTicket?.status !== 'agent' && newTicket.status === 'agent') {
+            setShowAgentConnected(true);
+            setTimeout(() => setShowAgentConnected(false), 5000); // Hide after 5s
+        }
+
+        setTicket(newTicket);
+        ticketRef.current = newTicket;
       }
     });
 
@@ -115,13 +135,13 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
     setInput('');
 
     startSendingTransition(async () => {
-      if (ticket.status === 'ai') {
-        setIsAiTyping(true);
-      }
-      
       await addMessage(ticketId, { role: 'user', content: textToSend });
-
-      if (ticket.status === 'ai') {
+      
+      if (ticket.status === 'closed') {
+        // Re-open the ticket and flag for attention
+        await updateTicket(ticketId, { status: 'needs-attention' });
+      } else if (ticket.status === 'ai') {
+        setIsAiTyping(true);
         const tempUserMessage = { role: 'user', content: textToSend, id: 'temp-user', createdAt: new Date().toISOString() };
         
         const chatHistoryForAI = [...messages, tempUserMessage]
@@ -224,6 +244,9 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
                   </div>
                 </div>
               )}
+               {showAgentConnected && settings.agentName && (
+                    <AgentConnectionStatus agentName={settings.agentName} />
+                )}
             </div>
           </ScrollArea>
           <div className="p-4 border-t bg-background/80">
@@ -237,7 +260,7 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
               <Textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Type your message..."
+                placeholder={ticket?.status === 'closed' ? "This ticket is closed. Type to re-open." : "Type your message..."}
                 className="flex-1 resize-none"
                 rows={1}
                 onKeyDown={(e) => {
@@ -246,12 +269,12 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
                     handleSendMessage();
                   }
                 }}
-                disabled={isSending || ticket?.status === 'closed'}
+                disabled={isSending}
               />
               <Button
                 type="submit"
                 size="icon"
-                disabled={!input.trim() || isSending || ticket?.status === 'closed'}
+                disabled={!input.trim() || isSending}
               >
                 {isSending ? <Loader2 className="w-5 h-5 animate-spin"/> : <ArrowUp className="w-5 h-5" />}
               </Button>

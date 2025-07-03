@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 import { linkify } from "@/lib/linkify";
 import {
   Archive,
+  Bell,
+  BellOff,
   Bot,
   BrainCircuit,
   Contact,
@@ -90,7 +92,8 @@ export function AdminDashboard() {
   
   // Notification state
   const audioRef = useRef<HTMLAudioElement>(null);
-  const [notifiedTickets, setNotifiedTickets] = useState(new Set<string>());
+  const prevTicketsRef = useRef<Ticket[]>([]);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const selectedTicketId = searchParams.get("ticketId");
@@ -102,6 +105,23 @@ export function AdminDashboard() {
         viewport.scrollTop = viewport.scrollHeight;
       }, 0);
     }
+  };
+
+  // Load notification preference from local storage
+  useEffect(() => {
+    const savedPref = localStorage.getItem("shopassist_notifications_enabled");
+    if (savedPref !== null) {
+      setNotificationsEnabled(JSON.parse(savedPref));
+    }
+  }, []);
+
+  const handleToggleNotifications = () => {
+    const newPref = !notificationsEnabled;
+    setNotificationsEnabled(newPref);
+    localStorage.setItem("shopassist_notifications_enabled", JSON.stringify(newPref));
+    toast({
+        title: `Notifications ${newPref ? 'Enabled' : 'Disabled'}`,
+    });
   };
 
   // Fetch settings
@@ -140,18 +160,28 @@ export function AdminDashboard() {
 
   // Handle notifications for tickets needing attention
   useEffect(() => {
-    const ticketNeedsAttention = tickets.find(
-      (t) => t.status === "needs-attention" && !notifiedTickets.has(t.id)
-    );
-    if (ticketNeedsAttention) {
-      audioRef.current?.play().catch(() => {});
-      setNotifiedTickets((prev) => new Set(prev).add(ticketNeedsAttention.id));
-      toast({
-        title: "Agent Required",
-        description: `Ticket from ${ticketNeedsAttention.customer.name} needs attention.`,
-      })
+    if (!notificationsEnabled) return;
+
+    // Identify tickets that have just transitioned to 'needs-attention'
+    const newlyNeedingAttention = tickets.filter(ticket => {
+      if (ticket.status !== 'needs-attention') return false;
+      const prevTicket = prevTicketsRef.current.find(pt => pt.id === ticket.id);
+      return !prevTicket || prevTicket.status !== 'needs-attention';
+    });
+
+    if (newlyNeedingAttention.length > 0) {
+      audioRef.current?.play().catch(() => {}); // Attempt to play sound
+      newlyNeedingAttention.forEach(ticket => {
+        toast({
+          title: "Agent Required",
+          description: `Ticket from ${ticket.customer.name} needs attention.`,
+        });
+      });
     }
-  }, [tickets, notifiedTickets, toast]);
+
+    // Update the ref to the current tickets for the next render
+    prevTicketsRef.current = tickets;
+  }, [tickets, notificationsEnabled, toast]);
 
 
   // Scroll to bottom of chat when new messages arrive if already at bottom
@@ -408,6 +438,14 @@ export function AdminDashboard() {
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
+                     <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={handleToggleNotifications}
+                        title={notificationsEnabled ? 'Mute Notifications' : 'Unmute Notifications'}
+                    >
+                        {notificationsEnabled ? <Bell/> : <BellOff className="text-muted-foreground"/>}
+                    </Button>
                     <Button
                         size="icon"
                         variant="ghost"
