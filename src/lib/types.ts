@@ -7,7 +7,7 @@ export type Message = {
 };
 
 export type Ticket = {
-  id: string;
+  id:string;
   messages: Message[];
   status: 'ai' | 'agent' | 'closed';
   lastUpdate: string;
@@ -16,4 +16,6 @@ export type Ticket = {
     name: string;
     avatar: string;
   };
+  notes?: string;
+  orderNumber?: string;
 };

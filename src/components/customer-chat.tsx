@@ -3,7 +3,7 @@
 
 import type { Message, Ticket } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { ArrowUp, BrainCircuit } from "lucide-react";
+import { ArrowUp, BrainCircuit, ShoppingCart } from "lucide-react";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
@@ -13,7 +13,7 @@ import { Textarea } from "./ui/textarea";
 import { getAiResponse } from "@/app/actions";
 import { format } from "date-fns";
 import { db } from "@/lib/firebase";
-import { addMessage } from "@/lib/firestore-service";
+import { addMessage, updateTicket } from "@/lib/firestore-service";
 import {
   collection,
   query,
@@ -22,6 +22,8 @@ import {
   doc,
   Timestamp,
 } from "firebase/firestore";
+import { Input } from "./ui/input";
+import { useToast } from "@/hooks/use-toast";
 
 const TypingIndicator = () => (
   <div className="flex items-center space-x-2">
@@ -37,6 +39,10 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
   const [input, setInput] = useState("");
   const [isAiTyping, setIsAiTyping] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [showOrderInput, setShowOrderInput] = useState(false);
+  const [orderNumber, setOrderNumber] = useState("");
+  const { toast } = useToast();
+
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -49,7 +55,6 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
   };
 
   useEffect(() => {
-    // Listener for the ticket document itself
     const ticketRef = doc(db, "tickets", ticketId);
     const unsubscribeTicket = onSnapshot(ticketRef, (docSnap) => {
       if (docSnap.exists()) {
@@ -62,7 +67,6 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
       }
     });
 
-    // Listener for messages subcollection
     const messagesQuery = query(
       collection(db, `tickets/${ticketId}/messages`),
       orderBy("createdAt", "asc")
@@ -123,6 +127,40 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
       });
     }
   };
+  
+  const handleOrderSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!orderNumber.trim() || !ticket) return;
+
+    startTransition(async () => {
+      await updateTicket(ticketId, { orderNumber });
+      const orderMessage: Omit<Message, "id" | "createdAt"> = {
+        role: 'user',
+        content: `Checking status for order #${orderNumber}`
+      };
+      await addMessage(ticketId, orderMessage);
+      
+      const aiResponseContent = await getAiResponse(
+        `The user wants to know the status of order #${orderNumber}.`,
+        ''
+      );
+
+      const aiMessage: Omit<Message, "id" | "createdAt"> = {
+        role: "assistant",
+        content: aiResponseContent,
+      };
+
+      await addMessage(ticketId, aiMessage);
+      
+      setOrderNumber("");
+      setShowOrderInput(false);
+      toast({
+        title: "Order number submitted",
+        description: "An agent will verify your order details shortly.",
+      });
+    });
+  }
+
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
@@ -133,8 +171,8 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
             ShopAssist AI
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex-1 flex flex-col p-0">
-          <ScrollArea className="flex-1 p-6" ref={scrollAreaRef}>
+        <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
+          <ScrollArea className="p-6" ref={scrollAreaRef}>
             <div className="space-y-6">
               {messages.map((message) => (
                 <div
@@ -166,7 +204,7 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
                         : "bg-card border rounded-bl-none"
                     )}
                   >
-                    <p className="text-sm">{message.content}</p>
+                    <p className="text-sm" style={{ whiteSpace: 'pre-wrap' }}>{message.content}</p>
                     <p
                       className={cn(
                         "text-xs mt-1",
@@ -204,6 +242,34 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
             </div>
           </ScrollArea>
           <div className="p-4 border-t bg-background/80">
+            {ticket?.status !== 'closed' && (
+              <>
+                {!showOrderInput ? (
+                   <div className="mb-2">
+                    <Button variant="outline" size="sm" onClick={() => setShowOrderInput(true)}>
+                      <ShoppingCart className="mr-2 h-4 w-4"/>
+                      Order Status
+                    </Button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleOrderSubmit} className="flex items-center gap-2 mb-2 animate-in fade-in-20">
+                     <Input
+                        value={orderNumber}
+                        onChange={(e) => setOrderNumber(e.target.value)}
+                        placeholder="Enter 4 digits from your order #, e.g. 1234"
+                        pattern="\d{4}"
+                        maxLength={4}
+                        className="flex-1"
+                        required
+                        disabled={isPending}
+                      />
+                    <Button type="submit" size="sm" disabled={isPending}>Submit</Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setShowOrderInput(false)}>Cancel</Button>
+                  </form>
+                )}
+              </>
+            )}
+
             <form
               onSubmit={(e) => {
                 e.preventDefault();

@@ -31,6 +31,8 @@ const ticketConverter: FirestoreDataConverter<Ticket> = {
       summary: data.summary,
       customer: data.customer,
       lastUpdate: (data.lastUpdate as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+      notes: data.notes,
+      orderNumber: data.orderNumber,
     };
   },
 };
@@ -55,6 +57,8 @@ export async function getOrCreateTicket(ticketId: string): Promise<Ticket> {
         avatar: `https://placehold.co/40x40/64B5F6/FFFFFF/png?text=C`,
       },
       summary: 'New conversation',
+      notes: '',
+      orderNumber: '',
     };
     await setDoc(ticketRef, newTicketData);
     return {
@@ -81,11 +85,12 @@ export async function addMessage(ticketId: string, message: Omit<Message, 'id' |
 export async function updateTicket(ticketId: string, data: Partial<Omit<Ticket, 'id' | 'messages'>>): Promise<void> {
     const ticketRef = doc(db, 'tickets', ticketId);
     const updateData: any = {...data};
-    if (!data.hasOwnProperty('summary')) { // Only update timestamp if not updating summary to avoid race conditions
-        updateData.lastUpdate = serverTimestamp();
-    }
+    // Don't update lastUpdate automatically on every change, 
+    // let specific actions decide if they should.
+    // e.g. adding a message should, but editing notes might not.
     await updateDoc(ticketRef, updateData);
 }
+
 
 export async function getMessages(ticketId: string): Promise<Message[]> {
   const messagesCol = collection(db, `tickets/${ticketId}/messages`);
