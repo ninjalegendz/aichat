@@ -4,6 +4,11 @@ export type Message = {
   role: 'user' | 'assistant' | 'agent';
   content: string;
   createdAt: string;
+  replyTo?: {
+    messageId: string;
+    content: string;
+    role: 'user' | 'assistant' | 'agent';
+  }
 };
 
 export type Ticket = {
@@ -36,4 +41,8 @@ export type Settings = {
     agentBubbleTextColor?: string;
     assistantBubbleColor?: string;
     assistantBubbleTextColor?: string;
+    quickReplies?: {
+        id: string;
+        text: string;
+    }[];
 };

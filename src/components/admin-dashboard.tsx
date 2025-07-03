@@ -19,11 +19,14 @@ import {
   PanelRightClose,
   PanelRightOpen,
   RefreshCw,
+  Reply,
   Save,
   Send,
   Settings as SettingsIcon,
   ShoppingCart,
   UserCheck,
+  X,
+  MessageSquareReply,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -72,6 +75,7 @@ import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTitle } from "./ui/sheet";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 
 export function AdminDashboard() {
   const router = useRouter();
@@ -87,6 +91,11 @@ export function AdminDashboard() {
   const [isDetailsPanelOpen, setIsDetailsPanelOpen] = useState(true);
   const [settings, setSettings] = useState<Partial<Settings>>({});
   const [isSending, startSendingTransition] = useTransition();
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+
+  // Quick reply state
+  const [quickReplyQuery, setQuickReplyQuery] = useState("");
+  const [isQuickReplyOpen, setIsQuickReplyOpen] = useState(false);
 
   // State for the details panel
   const [customerName, setCustomerName] = useState("");
@@ -94,24 +103,23 @@ export function AdminDashboard() {
   const [ticketSummary, setTicketSummary] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   
-  // Notification state
   const audioRef = useRef<HTMLAudioElement>(null);
   const prevTicketsRef = useRef<Ticket[]>([]);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const selectedTicketId = searchParams.get("ticketId");
+  const hasScrolledRef = useRef(false);
 
-  const scrollToBottom = () => {
+  const scrollToBottom = (behavior: "smooth" | "auto" = "smooth") => {
     const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
     if (viewport) {
-      setTimeout(() => {
-        viewport.scrollTop = viewport.scrollHeight;
-      }, 0);
+       setTimeout(() => {
+        viewport.scrollTo({ top: viewport.scrollHeight, behavior });
+      }, 50);
     }
   };
 
-  // Load notification preference from local storage
   useEffect(() => {
     const savedPref = localStorage.getItem("shopassist_notifications_enabled");
     if (savedPref !== null) {
@@ -128,12 +136,10 @@ export function AdminDashboard() {
     });
   };
 
-  // Fetch settings
   useEffect(() => {
     getSettingsAction().then(setSettings);
   }, []);
 
-  // Fetch all tickets for the sidebar list
   useEffect(() => {
     const ticketsQuery = query(
       collection(db, "tickets"),
@@ -162,11 +168,9 @@ export function AdminDashboard() {
     return () => unsubscribe();
   }, []);
 
-  // Handle notifications for tickets needing attention
   useEffect(() => {
     if (!notificationsEnabled) return;
 
-    // Identify tickets that have just transitioned to 'needs-attention'
     const newlyNeedingAttention = tickets.filter(ticket => {
       if (ticket.status !== 'needs-attention') return false;
       const prevTicket = prevTicketsRef.current.find(pt => pt.id === ticket.id);
@@ -174,7 +178,7 @@ export function AdminDashboard() {
     });
 
     if (newlyNeedingAttention.length > 0) {
-      audioRef.current?.play().catch(() => {}); // Attempt to play sound
+      audioRef.current?.play().catch(() => {});
       newlyNeedingAttention.forEach(ticket => {
         toast({
           title: "Agent Required",
@@ -182,41 +186,40 @@ export function AdminDashboard() {
         });
       });
     }
-
-    // Update the ref to the current tickets for the next render
     prevTicketsRef.current = tickets;
   }, [tickets, notificationsEnabled, toast]);
 
-
-  // Scroll to bottom of chat when new messages arrive if already at bottom
   useEffect(() => {
-    const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
-    if (viewport) {
-      const isAtBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 100;
-      if (isAtBottom) {
-        scrollToBottom();
-      }
+     if (messages.length > 0 && hasScrolledRef.current) {
+        const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
+        if (viewport) {
+          const isAtBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 100;
+          if (isAtBottom) {
+            scrollToBottom();
+          }
+        }
     }
   }, [messages]);
 
-  // Load selected ticket and its messages
   useEffect(() => {
     if (selectedTicketId) {
       const ticketData = tickets.find((t) => t.id === selectedTicketId) || null;
       
-      // Auto take-over ticket if it needs attention
       if (ticketData?.status === 'needs-attention') {
         updateTicket(ticketData.id, { status: 'agent' });
       }
 
       setSelectedTicket(ticketData);
       setAgentInput("");
+      setReplyingTo(null);
 
       if (ticketData) {
         setCustomerName(ticketData.customer.name);
         setCustomerNotes(ticketData.notes || "");
         setTicketSummary(ticketData.summary || "");
       }
+      
+      hasScrolledRef.current = false; // Reset scroll flag for new ticket
 
       const messagesQuery = query(
         collection(db, `tickets/${selectedTicketId}/messages`),
@@ -235,7 +238,11 @@ export function AdminDashboard() {
           } as Message);
         });
         setMessages(newMessages);
-        scrollToBottom(); // Unconditionally scroll to bottom when a new ticket is opened
+
+        if (!hasScrolledRef.current) {
+          scrollToBottom("auto");
+          hasScrolledRef.current = true;
+        }
       });
       return () => unsubscribe();
     } else {
@@ -249,9 +256,15 @@ export function AdminDashboard() {
     if (!selectedTicket || !textToSend) return;
 
     setAgentInput('');
+    const replyInfo = replyingTo ? {
+      messageId: replyingTo.id,
+      content: replyingTo.content,
+      role: replyingTo.role,
+    } : undefined;
+    setReplyingTo(null);
 
     startSendingTransition(async () => {
-      await addMessage(selectedTicket.id, { role: 'agent', content: textToSend });
+      await addMessage(selectedTicket.id, { role: 'agent', content: textToSend, replyTo: replyInfo });
       await updateTicket(selectedTicket.id, { status: "agent" });
     });
   };
@@ -278,7 +291,6 @@ export function AdminDashboard() {
         customer: { ...selectedTicket.customer, name: customerName },
         notes: customerNotes,
         summary: ticketSummary,
-        orderNumber: selectedTicket.orderNumber
       };
       await updateTicket(selectedTicket.id, updatedData);
       toast({
@@ -313,19 +325,69 @@ export function AdminDashboard() {
     router.push("/admin/login");
   };
 
-  // Effect to handle browser close/refresh for ticket reassignment
   useEffect(() => {
     const handleBeforeUnload = () => {
       reassignAgentTicketsToAI();
     };
-
     window.addEventListener('beforeunload', handleBeforeUnload);
-
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [tickets]); // Dependency ensures the handler has the latest tickets list.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tickets]);
 
+  const handleAgentInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setAgentInput(value);
+    if (value.startsWith('/')) {
+      setIsQuickReplyOpen(true);
+      setQuickReplyQuery(value.substring(1));
+    } else {
+      setIsQuickReplyOpen(false);
+    }
+  };
+
+  const handleSelectQuickReply = (text: string) => {
+    setAgentInput(text);
+    setIsQuickReplyOpen(false);
+  };
+
+  const filteredQuickReplies = settings.quickReplies?.filter(reply => 
+    reply.text.toLowerCase().includes(quickReplyQuery.toLowerCase())
+  ) || [];
+
+  const ReplyPreview = ({ message, onCancel }: { message: Message, onCancel: () => void }) => (
+    <div className="p-2 border-t text-sm bg-muted/50">
+      <div className="flex justify-between items-center mb-1">
+        <p className="font-semibold text-muted-foreground">Replying to {message.role}</p>
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onCancel}>
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+      <p className="bg-background/50 p-2 rounded-md border text-muted-foreground truncate">
+        {message.content}
+      </p>
+    </div>
+  );
+
+  const RepliedMessage = ({ message, settings }: { message: NonNullable<Message['replyTo']>, settings: Partial<Settings> }) => {
+    const getRoleName = () => {
+      switch (message.role) {
+        case 'user': return 'Customer';
+        case 'agent': return settings.agentName || 'Agent';
+        case 'assistant': return 'AI Assistant';
+        default: return 'User';
+      }
+    }
+    return (
+        <div className="p-2 rounded-md mb-2 text-sm bg-black/5 border-l-2 border-primary/50">
+            <p className="font-semibold text-xs text-muted-foreground">
+                {getRoleName()}
+            </p>
+            <p className="truncate text-muted-foreground">{message.content}</p>
+        </div>
+    )
+  }
 
   const DetailsPanel = () => (
     <Card className="w-full h-full border-0 rounded-none flex flex-col">
@@ -535,7 +597,6 @@ export function AdminDashboard() {
       </Sidebar>
       <SidebarInset>
         <div className="flex h-screen flex-col">
-          {/* Mobile Header */}
           <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4 md:hidden">
             <SidebarTrigger />
             <div className="flex-1 truncate">
@@ -584,68 +645,88 @@ export function AdminDashboard() {
                   </CardHeader>
                   <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
                     <ScrollArea className="flex-1" ref={scrollAreaRef}>
-                      <div className="space-y-6 p-4 md:p-6">
+                      <div className="space-y-2 p-4 md:p-6">
                         {messages.map((message) => (
                           <div
                             key={message.id}
                             className={cn(
-                              "flex items-start gap-3",
+                              "flex items-start gap-3 group",
                               message.role === "user"
-                                ? "justify-end"
+                                ? "justify-end flex-row-reverse"
                                 : "justify-start"
                             )}
                           >
-                            {message.role !== "user" && (
-                              <Avatar className="w-8 h-8">
+                            <Avatar className="w-8 h-8">
                                 <AvatarImage
-                                  src={
-                                    message.role === "assistant"
-                                      ? undefined
-                                      : settings.agentAvatar
-                                  }
+                                    src={
+                                    message.role === "user"
+                                        ? selectedTicket.customer.avatar
+                                        : message.role === "assistant"
+                                        ? undefined
+                                        : settings.agentAvatar
+                                    }
                                 />
                                 <AvatarFallback>
-                                  {message.role === "assistant" ? "A" : settings.agentName?.charAt(0) || 'S'}
+                                    {message.role === "user"
+                                    ? selectedTicket.customer.name.charAt(0)
+                                    : message.role === "assistant" ? "A" : settings.agentName?.charAt(0) || 'S'}
                                 </AvatarFallback>
-                              </Avatar>
-                            )}
-                            <div
-                              className={cn(
-                                "max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl",
-                                message.role === "user"
-                                  ? "bg-muted rounded-br-none"
-                                  : message.role === "agent"
-                                  ? "bg-primary text-primary-foreground rounded-bl-none"
-                                  : "bg-card border rounded-bl-none"
-                              )}
-                            >
-                              <div className="text-sm prose" style={{ whiteSpace: 'pre-wrap' }}>{linkify(message.content)}</div>
-                              <p
+                            </Avatar>
+                           
+                            <div className="flex items-center gap-2">
+                                <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setReplyingTo(message)}>
+                                    <MessageSquareReply className="w-4 h-4"/>
+                                </Button>
+                                <div
                                 className={cn(
-                                  "text-xs mt-1",
-                                  message.role === "agent"
-                                    ? "text-primary-foreground/70"
-                                    : "text-muted-foreground/70"
+                                    "max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl",
+                                    message.role === "user"
+                                    ? "bg-muted rounded-br-none"
+                                    : message.role === "agent"
+                                    ? "bg-primary text-primary-foreground rounded-bl-none"
+                                    : "bg-card border rounded-bl-none"
                                 )}
-                              >
-                                {format(new Date(message.createdAt), "p")}
-                              </p>
+                                >
+                                {message.replyTo && <RepliedMessage message={message.replyTo} settings={settings} />}
+                                <div className="text-sm prose" style={{ whiteSpace: 'pre-wrap' }}>{linkify(message.content)}</div>
+                                <p
+                                    className={cn(
+                                    "text-xs mt-1",
+                                    message.role === "agent"
+                                        ? "text-primary-foreground/70"
+                                        : "text-muted-foreground/70"
+                                    )}
+                                >
+                                    {format(new Date(message.createdAt), "p")}
+                                </p>
+                                </div>
                             </div>
-                            {message.role === "user" && (
-                              <Avatar className="w-8 h-8">
-                                <AvatarImage
-                                  src={selectedTicket.customer.avatar}
-                                />
-                                <AvatarFallback>
-                                  {selectedTicket.customer.name.charAt(0)}
-                                </AvatarFallback>
-                              </Avatar>
-                            )}
                           </div>
                         ))}
                       </div>
                     </ScrollArea>
-                    <div className="p-4 border-t bg-background/80">
+                    {replyingTo && <ReplyPreview message={replyingTo} onCancel={() => setReplyingTo(null)} />}
+                    <div className="p-4 border-t bg-background/80 relative">
+                        <Popover open={isQuickReplyOpen} onOpenChange={setIsQuickReplyOpen}>
+                            <PopoverTrigger asChild>
+                                <div />
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[calc(100%-2rem)] p-1 mb-2 max-h-60 overflow-y-auto">
+                                {filteredQuickReplies.length > 0 ? (
+                                    filteredQuickReplies.map(reply => (
+                                        <div 
+                                            key={reply.id} 
+                                            className="p-2 hover:bg-muted rounded-md cursor-pointer text-sm"
+                                            onClick={() => handleSelectQuickReply(reply.text)}
+                                        >
+                                            {reply.text}
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="p-2 text-sm text-muted-foreground">No matching quick replies.</div>
+                                )}
+                            </PopoverContent>
+                        </Popover>
                       <form
                         onSubmit={(e) => {
                           e.preventDefault();
@@ -655,8 +736,8 @@ export function AdminDashboard() {
                       >
                         <Textarea
                           value={agentInput}
-                          onChange={(e) => setAgentInput(e.target.value)}
-                          placeholder="Type your response as an agent..."
+                          onChange={handleAgentInputChange}
+                          placeholder="Type your response as an agent... (use '/' for quick replies)"
                           className="flex-1 resize-none"
                           rows={1}
                           onKeyDown={(e) => {

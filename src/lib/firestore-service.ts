@@ -141,6 +141,11 @@ A: You can contact us via this chat, or email us at support@example.com. Our sup
     agentBubbleTextColor: '#FFFFFF',
     assistantBubbleColor: '#FFFFFF',
     assistantBubbleTextColor: '#212121',
+    quickReplies: [
+        { id: '1', text: 'Hello! How can I help you today?' },
+        { id: '2', text: 'Is there anything else I can assist you with?' },
+        { id: '3', text: 'I\'m sorry, I\'m not sure how to help with that. Let me get a human agent for you.' },
+    ]
 };
 
 export async function getSettings(): Promise<Settings> {
@@ -148,7 +153,6 @@ export async function getSettings(): Promise<Settings> {
     const settingsSnap = await getDoc(settingsRef);
 
     if (settingsSnap.exists()) {
-        // Merge with defaults to ensure new settings are present
         const data = settingsSnap.data();
         return { ...DEFAULT_SETTINGS, ...data } as Settings;
     } else {
@@ -159,5 +163,5 @@ export async function getSettings(): Promise<Settings> {
 
 export async function updateSettings(data: Partial<Settings>): Promise<void> {
     const settingsRef = doc(db, 'settings', 'global');
-    await updateDoc(settingsRef, data);
+    await setDoc(settingsRef, data, { merge: true });
 }

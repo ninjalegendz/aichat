@@ -6,12 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { hexToHslString } from "@/lib/utils";
 import type { Settings } from "@/lib/types";
-import { ArrowLeft, BrainCog, Bot, Loader2, Palette, Save, User, MessageCircle } from "lucide-react";
+import { ArrowLeft, BrainCog, Bot, Loader2, Palette, Save, User, MessageCircle, Plus, Trash2, Send } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
@@ -47,7 +46,6 @@ export function AdminSettings() {
     const { name, value } = e.target;
     setSettings((prev) => ({ ...prev, [name]: value }));
 
-    // Live update for colors
     if (name === 'primaryColor' || name === 'accentColor' || name === 'backgroundColor') {
         const propertyName = name === 'primaryColor' ? '--primary' : name === 'accentColor' ? '--accent' : '--background';
         if (value) {
@@ -55,11 +53,40 @@ export function AdminSettings() {
         }
     }
   };
+  
+  const handleAddQuickReply = () => {
+    const newReply = { id: crypto.randomUUID(), text: "" };
+    setSettings(prev => ({
+      ...prev,
+      quickReplies: [...(prev.quickReplies || []), newReply]
+    }));
+  };
+
+  const handleQuickReplyChange = (id: string, text: string) => {
+    setSettings(prev => ({
+      ...prev,
+      quickReplies: (prev.quickReplies || []).map(reply =>
+        reply.id === id ? { ...reply, text } : reply
+      )
+    }));
+  };
+  
+  const handleDeleteQuickReply = (id: string) => {
+    setSettings(prev => ({
+      ...prev,
+      quickReplies: (prev.quickReplies || []).filter(reply => reply.id !== id)
+    }));
+  };
 
   const handleSaveChanges = async () => {
     startSavingTransition(async () => {
       try {
-        await updateSettingsAction(settings);
+        const settingsToSave = {
+            ...settings,
+            quickReplies: (settings.quickReplies || []).filter(r => r.text.trim() !== '')
+        }
+        await updateSettingsAction(settingsToSave);
+        setSettings(settingsToSave);
         toast({
           title: "Settings Saved",
           description: "Your changes have been saved successfully.",
@@ -96,8 +123,7 @@ export function AdminSettings() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-            <Accordion type="multiple" defaultValue={['item-1']} className="w-full">
-                {/* AI Profile Settings */}
+            <Accordion type="multiple" defaultValue={['item-1', 'item-2', 'item-3']} className="w-full">
                 <AccordionItem value="item-1">
                     <AccordionTrigger className="text-lg font-medium">
                         <div className="flex items-center gap-3"><User className="w-5 h-5"/> AI Profile</div>
@@ -128,7 +154,6 @@ export function AdminSettings() {
                     </AccordionContent>
                 </AccordionItem>
 
-                {/* AI Behavior Settings */}
                 <AccordionItem value="item-2">
                     <AccordionTrigger className="text-lg font-medium">
                         <div className="flex items-center gap-3"><Bot className="w-5 h-5"/> AI Behavior</div>
@@ -161,8 +186,7 @@ export function AdminSettings() {
                     </AccordionContent>
                 </AccordionItem>
 
-                 {/* Theme & Branding Settings */}
-                <AccordionItem value="item-3">
+                 <AccordionItem value="item-3">
                     <AccordionTrigger className="text-lg font-medium">
                         <div className="flex items-center gap-3"><Palette className="w-5 h-5"/> Theme & Branding (Customer-Facing)</div>
                     </AccordionTrigger>
@@ -214,14 +238,11 @@ export function AdminSettings() {
                         </div>
                     </AccordionContent>
                 </AccordionItem>
-
-                {/* Chat Bubble Colors */}
                  <AccordionItem value="item-4">
                     <AccordionTrigger className="text-lg font-medium">
                          <div className="flex items-center gap-3"><MessageCircle className="w-5 h-5"/> Chat Bubble Colors (Customer-Facing)</div>
                     </AccordionTrigger>
                     <AccordionContent className="pt-4 space-y-4">
-                        {/* User Bubble */}
                         <div className="p-4 border rounded-lg">
                              <h4 className="text-md font-semibold mb-4">User Message Bubbles</h4>
                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -249,7 +270,6 @@ export function AdminSettings() {
                                 </div>
                             </div>
                         </div>
-                        {/* Agent Bubble */}
                         <div className="p-4 border rounded-lg">
                              <h4 className="text-md font-semibold mb-4">Agent Message Bubbles</h4>
                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -277,7 +297,6 @@ export function AdminSettings() {
                                 </div>
                             </div>
                         </div>
-                        {/* Assistant Bubble */}
                         <div className="p-4 border rounded-lg">
                              <h4 className="text-md font-semibold mb-4">AI Assistant Message Bubbles</h4>
                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -305,7 +324,31 @@ export function AdminSettings() {
                                 </div>
                             </div>
                         </div>
-
+                    </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="item-5">
+                    <AccordionTrigger className="text-lg font-medium">
+                        <div className="flex items-center gap-3"><Send className="w-5 h-5"/> Quick Replies (for Agents)</div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-4 space-y-4">
+                        <p className="text-sm text-muted-foreground">Create and manage pre-written responses that agents can quickly access by typing "/" in the chat input.</p>
+                        <div className="space-y-3">
+                        {(settings.quickReplies || []).map((reply) => (
+                            <div key={reply.id} className="flex items-center gap-2">
+                            <Input
+                                value={reply.text}
+                                onChange={(e) => handleQuickReplyChange(reply.id, e.target.value)}
+                                placeholder="Enter quick reply text..."
+                            />
+                            <Button variant="ghost" size="icon" onClick={() => handleDeleteQuickReply(reply.id)}>
+                                <Trash2 className="w-4 h-4" />
+                            </Button>
+                            </div>
+                        ))}
+                        </div>
+                        <Button variant="outline" size="sm" onClick={handleAddQuickReply}>
+                            <Plus className="mr-2 h-4 w-4" /> Add Quick Reply
+                        </Button>
                     </AccordionContent>
                 </AccordionItem>
             </Accordion>

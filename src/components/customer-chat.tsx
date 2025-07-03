@@ -4,7 +4,7 @@
 import type { Message, Settings, Ticket } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { linkify } from "@/lib/linkify";
-import { ArrowUp, BrainCircuit, Loader2 } from "lucide-react";
+import { ArrowUp, BrainCircuit, Loader2, MessageSquareReply, X } from "lucide-react";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
@@ -50,15 +50,17 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
   const [isSending, startSendingTransition] = useTransition();
   const [settings, setSettings] = useState<Partial<Settings>>({});
   const [showAgentConnected, setShowAgentConnected] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const hasScrolledRef = useRef(false);
 
-  const scrollToBottom = () => {
+  const scrollToBottom = (behavior: "smooth" | "auto" = "smooth") => {
     const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
     if (viewport) {
       setTimeout(() => {
-        viewport.scrollTop = viewport.scrollHeight;
-      }, 0);
+        viewport.scrollTo({ top: viewport.scrollHeight, behavior });
+      }, 50);
     }
   };
 
@@ -76,10 +78,9 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
           lastUpdate: (newTicketData.lastUpdate as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
         } as Ticket;
 
-        // Check if agent just connected
         if (oldTicket?.status !== 'agent' && newTicket.status === 'agent') {
             setShowAgentConnected(true);
-            setTimeout(() => setShowAgentConnected(false), 5000); // Hide after 5s
+            setTimeout(() => setShowAgentConnected(false), 5000);
         }
 
         setTicket(newTicket);
@@ -106,20 +107,22 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
       setMessages(newMessages);
     });
     
-    // Initial scroll to bottom
-    setTimeout(scrollToBottom, 200);
-
     return () => {
       unsubscribeTicket();
       unsubscribeMessages();
     };
   }, [ticketId]);
 
-  // Handle scrolling when new messages are added
+  useEffect(() => {
+    if (messages.length > 0 && !hasScrolledRef.current) {
+        scrollToBottom("auto");
+        hasScrolledRef.current = true;
+    }
+  }, [messages]);
+
   useEffect(() => {
     const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
     if (viewport) {
-      // Only auto-scroll if user is already near the bottom
       const isAtBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 150;
       if (isAtBottom) {
         scrollToBottom();
@@ -133,12 +136,17 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
     if (!ticket || !textToSend) return;
 
     setInput('');
+    const replyInfo = replyingTo ? {
+      messageId: replyingTo.id,
+      content: replyingTo.content,
+      role: replyingTo.role,
+    } : undefined;
+    setReplyingTo(null);
 
     startSendingTransition(async () => {
-      await addMessage(ticketId, { role: 'user', content: textToSend });
+      await addMessage(ticketId, { role: 'user', content: textToSend, replyTo: replyInfo });
       
       if (ticket.status === 'closed') {
-        // Re-open the ticket and flag for attention
         await updateTicket(ticketId, { status: 'needs-attention' });
       } else if (ticket.status === 'ai') {
         setIsAiTyping(true);
@@ -156,6 +164,38 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
     });
   };
 
+  const ReplyPreview = ({ message, onCancel }: { message: Message, onCancel: () => void }) => (
+    <div className="p-2 border-t text-sm bg-muted/50">
+      <div className="flex justify-between items-center mb-1">
+        <p className="font-semibold text-muted-foreground">Replying to {message.role}</p>
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onCancel}>
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+      <p className="bg-background/50 p-2 rounded-md border text-muted-foreground truncate">
+        {message.content}
+      </p>
+    </div>
+  );
+  
+  const RepliedMessage = ({ message, settings }: { message: NonNullable<Message['replyTo']>, settings: Partial<Settings> }) => {
+    const getRoleName = () => {
+      switch (message.role) {
+        case 'user': return 'You';
+        case 'agent': return settings.agentName || 'Agent';
+        case 'assistant': return settings.agentName || 'AI Assistant';
+        default: return 'User';
+      }
+    }
+    return (
+        <div className="p-2 rounded-md mb-2 text-sm bg-black/5 border-l-2 border-primary/50">
+            <p className="font-semibold text-xs text-muted-foreground">
+                {getRoleName()}
+            </p>
+            <p className="truncate text-muted-foreground">{message.content}</p>
+        </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-background md:flex md:items-center md:justify-center md:p-4">
@@ -180,29 +220,32 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
         </CardHeader>
         <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
           <ScrollArea className="flex-1" ref={scrollAreaRef}>
-            <div className="space-y-6 p-4 md:p-6">
+            <div className="space-y-2 p-4 md:p-6">
               {messages.map((message) => (
                 <div
                   key={message.id}
                   className={cn(
-                    "flex items-start gap-3",
+                    "flex items-start gap-3 group",
                     message.role === "user" ? "justify-end" : "justify-start"
                   )}
                 >
-                  {message.role !== "user" && (
-                    <Avatar className="w-8 h-8">
-                      <AvatarImage
-                        src={
-                          message.role === "assistant"
-                            ? undefined // AI has no specific avatar, uses fallback
-                            : settings.agentAvatar
-                        }
-                      />
-                      <AvatarFallback>
-                        {message.role === "assistant" ? "A" : settings.agentName?.charAt(0) || 'S'}
-                      </AvatarFallback>
-                    </Avatar>
+                   {message.role !== "user" && (
+                     <div className="flex items-center gap-3">
+                        <Avatar className="w-8 h-8">
+                            <AvatarImage
+                                src={
+                                message.role === "assistant"
+                                    ? undefined
+                                    : settings.agentAvatar
+                                }
+                            />
+                            <AvatarFallback>
+                                {message.role === "assistant" ? "A" : settings.agentName?.charAt(0) || 'S'}
+                            </AvatarFallback>
+                        </Avatar>
+                     </div>
                   )}
+
                   <div
                     className={cn(
                       "max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl animate-in fade-in zoom-in-95",
@@ -213,8 +256,8 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
                       : 'bg-assistant-bubble text-assistant-foreground border rounded-bl-none'
                     )}
                   >
+                     {message.replyTo && <RepliedMessage message={message.replyTo} settings={settings} />}
                     <div className="text-sm prose" style={{ whiteSpace: 'pre-wrap' }}>{linkify(message.content)}</div>
-
                     <p
                       className={cn(
                         "text-xs mt-1",
@@ -228,6 +271,14 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
                       {format(new Date(message.createdAt), "p")}
                     </p>
                   </div>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 self-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => setReplyingTo(message)}
+                    >
+                        <MessageSquareReply className="w-4 h-4" />
+                    </Button>
                   {message.role === "user" && ticket?.customer && (
                     <Avatar className="w-8 h-8">
                       <AvatarImage src={ticket.customer.avatar} />
@@ -253,6 +304,7 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
                 )}
             </div>
           </ScrollArea>
+           {replyingTo && <ReplyPreview message={replyingTo} onCancel={() => setReplyingTo(null)} />}
           <div className="p-4 border-t bg-background/80">
             <form
               onSubmit={(e) => {
