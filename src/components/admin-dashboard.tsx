@@ -1,8 +1,8 @@
 
 "use client";
 
-import { summarizeAndSaveTicket } from "@/app/actions";
-import type { Message, Ticket } from "@/lib/types";
+import { handleFileUploadAction, summarizeAndSaveTicket, getSettingsAction } from "@/app/actions";
+import type { Message, Settings, Ticket } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
   Archive,
@@ -14,13 +14,18 @@ import {
   LogOut,
   MessageSquare,
   NotebookPen,
+  PanelRightClose,
+  PanelRightOpen,
+  Paperclip,
   RefreshCw,
   Save,
   Send,
+  Settings as SettingsIcon,
   ShoppingCart,
   UserCheck,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { format, formatDistanceToNow } from "date-fns";
@@ -46,6 +51,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
+  SidebarSeparator,
 } from "./ui/sidebar";
 import { Textarea } from "./ui/textarea";
 import { signOut } from "firebase/auth";
@@ -73,6 +79,8 @@ export function AdminDashboard() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [agentInput, setAgentInput] = useState("");
   const [isSummarizePending, startSummarizeTransition] = useTransition();
+  const [isDetailsPanelOpen, setIsDetailsPanelOpen] = useState(true);
+  const [settings, setSettings] = useState<Partial<Settings>>({});
 
   // State for the details panel
   const [customerName, setCustomerName] = useState("");
@@ -81,7 +89,13 @@ export function AdminDashboard() {
   const [isSaving, setIsSaving] = useState(false);
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const selectedTicketId = searchParams.get("ticketId");
+
+  // Fetch settings
+  useEffect(() => {
+    getSettingsAction().then(setSettings);
+  }, []);
 
   // Fetch all tickets for the sidebar list
   useEffect(() => {
@@ -211,6 +225,30 @@ export function AdminDashboard() {
     }
   };
 
+   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !selectedTicketId) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('ticketId', selectedTicketId);
+    formData.append('role', 'agent');
+
+    toast({ title: 'Uploading file...', description: file.name });
+    try {
+        await handleFileUploadAction(formData);
+        toast({ title: 'Upload successful', description: 'File has been added to the chat.' });
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Upload failed', description: 'Could not upload the file.' });
+        console.error("File upload failed:", error);
+    }
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+
   const handleLogout = async () => {
     await signOut(auth);
     router.push("/admin/login");
@@ -281,16 +319,21 @@ export function AdminDashboard() {
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-2"
-            onClick={handleLogout}
-          >
-            <LogOut className="size-4" />
-            <span className="group-data-[collapsible=icon]:hidden">
-              Log Out
-            </span>
-          </Button>
+          <SidebarSeparator/>
+          <SidebarMenuItem>
+            <Link href="/admin/settings">
+                <SidebarMenuButton tooltip="Settings">
+                    <SettingsIcon/>
+                    <span>Settings</span>
+                </SidebarMenuButton>
+            </Link>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+              <SidebarMenuButton onClick={handleLogout} tooltip="Log Out">
+                  <LogOut/>
+                  <span>Log Out</span>
+              </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
@@ -306,32 +349,13 @@ export function AdminDashboard() {
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
-                    {selectedTicket.status !== "agent" && (
-                      <Button
-                        size="sm"
-                        onClick={() => handleTicketStatusChange("agent")}
-                      >
-                        <UserCheck className="mr-2 h-4 w-4" /> Take Over
-                      </Button>
-                    )}
-                    {selectedTicket.status === "agent" && (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => handleTicketStatusChange("ai")}
-                      >
-                        <Bot className="mr-2 h-4 w-4" /> Let AI Handle
-                      </Button>
-                    )}
-                    {selectedTicket.status !== "closed" && (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleTicketStatusChange("closed")}
-                      >
-                        <Archive className="mr-2 h-4 w-4" /> Close Ticket
-                      </Button>
-                    )}
+                    <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => setIsDetailsPanelOpen(prev => !prev)}
+                    >
+                        {isDetailsPanelOpen ? <PanelRightClose/> : <PanelRightOpen/>}
+                    </Button>
                   </div>
                 </CardHeader>
                 <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
@@ -353,7 +377,7 @@ export function AdminDashboard() {
                                 src={
                                   message.role === "assistant"
                                     ? `https://placehold.co/40x40/26A69A/FFFFFF/png?text=A`
-                                    : `https://placehold.co/40x40/1E88E5/FFFFFF/png?text=S`
+                                    : settings.agentAvatar
                                 }
                               />
                               <AvatarFallback>
@@ -371,7 +395,20 @@ export function AdminDashboard() {
                                 : "bg-card border rounded-bl-none"
                             )}
                           >
-                            <p className="text-sm" style={{ whiteSpace: 'pre-wrap' }}>{message.content}</p>
+                           {message.attachment ? (
+                                message.attachment.type.startsWith('image/') ? (
+                                    <Link href={message.attachment.url} target="_blank" rel="noopener noreferrer">
+                                        <Image src={message.attachment.url} alt={message.attachment.name} width={200} height={200} className="rounded-md object-cover"/>
+                                    </Link>
+                                ) : (
+                                    <Link href={message.attachment.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm font-medium underline">
+                                        <Paperclip className="w-4 h-4"/>
+                                        {message.attachment.name}
+                                    </Link>
+                                )
+                            ) : (
+                                <p className="text-sm" style={{ whiteSpace: 'pre-wrap' }}>{message.content}</p>
+                            )}
                             <p
                               className={cn(
                                 "text-xs mt-1",
@@ -406,6 +443,10 @@ export function AdminDashboard() {
                     }}
                     className="flex items-center gap-2 w-full"
                   >
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*,.pdf"/>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={selectedTicket.status === 'closed'}>
+                        <Paperclip className="w-5 h-5"/>
+                    </Button>
                     <Textarea
                       value={agentInput}
                       onChange={(e) => setAgentInput(e.target.value)}
@@ -441,14 +482,44 @@ export function AdminDashboard() {
             )}
           </div>
 
-          {selectedTicket && (
-            <Card className="w-96 border-l-2 rounded-none flex flex-col">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Contact className="w-6 h-6" /> Customer Details
-                </CardTitle>
+          {selectedTicket && isDetailsPanelOpen && (
+            <Card className="w-96 border-l-2 rounded-none flex flex-col transition-all duration-300 ease-in-out">
+              <CardHeader className="border-b">
+                <div className="flex justify-between items-center">
+                    <CardTitle className="flex items-center gap-2">
+                        <Contact className="w-6 h-6" /> Customer Details
+                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                        {selectedTicket.status !== "agent" && (
+                        <Button
+                            size="sm"
+                            onClick={() => handleTicketStatusChange("agent")}
+                        >
+                            <UserCheck className="mr-2 h-4 w-4" /> Take Over
+                        </Button>
+                        )}
+                        {selectedTicket.status === "agent" && (
+                        <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => handleTicketStatusChange("ai")}
+                        >
+                            <Bot className="mr-2 h-4 w-4" /> Let AI Handle
+                        </Button>
+                        )}
+                        {selectedTicket.status !== "closed" && (
+                        <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleTicketStatusChange("closed")}
+                        >
+                            <Archive className="mr-2 h-4 w-4" /> Close Ticket
+                        </Button>
+                        )}
+                    </div>
+                </div>
               </CardHeader>
-              <CardContent className="flex-1 space-y-4 overflow-y-auto">
+              <CardContent className="flex-1 space-y-4 overflow-y-auto pt-6">
                 <div className="space-y-2">
                   <Label htmlFor="customerName">Name</Label>
                   <Input

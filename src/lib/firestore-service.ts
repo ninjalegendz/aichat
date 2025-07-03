@@ -14,7 +14,7 @@ import {
   FirestoreDataConverter,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Ticket, Message } from './types';
+import type { Ticket, Message, Settings } from './types';
 
 // Firestore data converter to handle Timestamp conversions
 const ticketConverter: FirestoreDataConverter<Ticket> = {
@@ -104,4 +104,36 @@ export async function getMessages(ticketId: string): Promise<Message[]> {
           createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
       } as Message
   });
+}
+
+const DEFAULT_SETTINGS: Settings = {
+    agentName: 'Support Agent',
+    agentAvatar: `https://placehold.co/40x40/1E88E5/FFFFFF/png?text=S`,
+    systemPrompt: `You are ShopAssist AI, a friendly and empathetic customer support agent. Your primary goal is to understand the customer's problem and gather all necessary details for a human agent to resolve the issue efficiently. Be polite and patient. If the user is reporting a problem, express empathy. Ask for their order number if relevant. If they are describing a visual issue, ask them to upload a screenshot or photo. If they are talking about payments, ask for a proof of payment PDF. Collect all information before concluding the conversation. Do not answer questions that are not related to customer support.`,
+    knowledgeBase: `
+ShopAssist AI FAQ:
+Q: How do I track my order?
+A: You can track your order by visiting the 'Track Order' page on our website and entering your order number and email address.
+Q: What is your return policy?
+A: We accept returns within 30 days of purchase. The item must be unused and in its original packaging. Please visit our 'Returns' page to initiate a return.
+Q: How can I contact customer support?
+A: You can contact us via this chat, or email us at support@example.com. Our support hours are 9 AM to 5 PM, Monday to Friday.
+`
+};
+
+export async function getSettings(): Promise<Settings> {
+    const settingsRef = doc(db, 'settings', 'global');
+    const settingsSnap = await getDoc(settingsRef);
+
+    if (settingsSnap.exists()) {
+        return settingsSnap.data() as Settings;
+    } else {
+        await setDoc(settingsRef, DEFAULT_SETTINGS);
+        return DEFAULT_SETTINGS;
+    }
+}
+
+export async function updateSettings(data: Partial<Settings>): Promise<void> {
+    const settingsRef = doc(db, 'settings', 'global');
+    await updateDoc(settingsRef, data);
 }

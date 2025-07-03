@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -12,8 +13,10 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const InitialResponseInputSchema = z.object({
-  query: z.string().describe('The customer inquiry.'),
+  currentQuery: z.string().describe('The latest customer message.'),
+  chatHistory: z.string().optional().describe('The full conversation history.'),
   knowledgeBase: z.string().optional().describe('Contextual knowledge base to inform the response.'),
+  systemPrompt: z.string().optional().describe('The system prompt that defines the AIs behavior.'),
 });
 
 export type InitialResponseInput = z.infer<typeof InitialResponseInputSchema>;
@@ -28,39 +31,20 @@ export async function initialResponse(input: InitialResponseInput): Promise<Init
   return initialResponseFlow(input);
 }
 
-const knowledgeBaseTool = ai.defineTool({
-  name: 'knowledgeBase',
-  description: 'Retrieves information from the knowledge base provided by the user.',
-  inputSchema: z.object({
-    query: z.string().describe('The query to search the knowledge base for.'),
-  }),
-  outputSchema: z.string(),
-}, async (input) => {
-  // In a real application, this would call a service to retrieve data from the knowledge base.
-  // For this example, we'll just return the knowledge base itself.
-  return input.query;
-});
-
-
-const initialResponsePrompt = ai.definePrompt({
-  name: 'initialResponsePrompt',
-  input: {schema: InitialResponseInputSchema},
-  output: {schema: InitialResponseOutputSchema},
-  tools: [knowledgeBaseTool],
-  system: `You are a customer support AI assistant. Your goal is to provide helpful initial responses to customer inquiries.
-  You have access to a knowledge base tool that you can use to answer questions. If the user's question can be answered using the knowledge base, use the tool.
-  If the knowledge base doesn't contain the answer, respond politely and inform the user that a human agent will be with them shortly.`,
-  prompt: `{{query}}`,
-});
-
 const initialResponseFlow = ai.defineFlow(
   {
     name: 'initialResponseFlow',
     inputSchema: InitialResponseInputSchema,
     outputSchema: InitialResponseOutputSchema,
   },
-  async input => {
-    const {output} = await initialResponsePrompt(input);
+  async (input) => {
+    const {output} = await ai.generate({
+        system: input.systemPrompt,
+        prompt: `Knowledge Base:\n${input.knowledgeBase}\n\nChat History:\n${input.chatHistory}\n\nNew User Message: ${input.currentQuery}`,
+        output: {
+            schema: InitialResponseOutputSchema,
+        },
+    });
     return output!;
   }
 );

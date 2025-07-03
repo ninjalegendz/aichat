@@ -1,16 +1,18 @@
 
 "use client";
 
-import type { Message, Ticket } from "@/lib/types";
+import type { Message, Settings, Ticket } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { ArrowUp, BrainCircuit, ShoppingCart } from "lucide-react";
+import { ArrowUp, BrainCircuit, Loader2, Paperclip, ShoppingCart } from "lucide-react";
 import { useEffect, useRef, useState, useTransition } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { ScrollArea } from "./ui/scroll-area";
 import { Textarea } from "./ui/textarea";
-import { getAiResponse } from "@/app/actions";
+import { getAiResponse, getSettingsAction, handleFileUploadAction } from "@/app/actions";
 import { format } from "date-fns";
 import { db } from "@/lib/firebase";
 import { addMessage, updateTicket } from "@/lib/firestore-service";
@@ -41,9 +43,11 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
   const [isPending, startTransition] = useTransition();
   const [showOrderInput, setShowOrderInput] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
+  const [settings, setSettings] = useState<Partial<Settings>>({});
   const { toast } = useToast();
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
     if (scrollAreaRef.current) {
@@ -55,6 +59,8 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
   };
 
   useEffect(() => {
+    getSettingsAction().then(setSettings);
+
     const ticketRef = doc(db, "tickets", ticketId);
     const unsubscribeTicket = onSnapshot(ticketRef, (docSnap) => {
       if (docSnap.exists()) {
@@ -161,6 +167,31 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
     });
   }
 
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('ticketId', ticketId);
+    formData.append('role', 'user');
+
+    toast({ title: 'Uploading file...', description: file.name });
+    try {
+        startTransition(async () => {
+             await handleFileUploadAction(formData);
+             toast({ title: 'Upload successful', description: 'Your file has been sent.' });
+        });
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Upload failed', description: 'Could not upload your file.' });
+        console.error("File upload failed:", error);
+    }
+    
+    if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+    }
+  };
+
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
@@ -188,7 +219,7 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
                         src={
                           message.role === "assistant"
                             ? `https://placehold.co/40x40/26A69A/FFFFFF/png?text=A`
-                            : `https://placehold.co/40x40/1E88E5/FFFFFF/png?text=S`
+                            : settings.agentAvatar
                         }
                       />
                       <AvatarFallback>
@@ -204,7 +235,21 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
                         : "bg-card border rounded-bl-none"
                     )}
                   >
-                    <p className="text-sm" style={{ whiteSpace: 'pre-wrap' }}>{message.content}</p>
+                   {message.attachment ? (
+                        message.attachment.type.startsWith('image/') ? (
+                            <Link href={message.attachment.url} target="_blank" rel="noopener noreferrer">
+                                <Image src={message.attachment.url} alt={message.attachment.name} width={200} height={200} className="rounded-md object-cover"/>
+                            </Link>
+                        ) : (
+                            <Link href={message.attachment.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm font-medium underline">
+                                <Paperclip className="w-4 h-4"/>
+                                {message.attachment.name}
+                            </Link>
+                        )
+                    ) : (
+                        <p className="text-sm" style={{ whiteSpace: 'pre-wrap' }}>{message.content}</p>
+                    )}
+
                     <p
                       className={cn(
                         "text-xs mt-1",
@@ -245,7 +290,7 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
             {ticket?.status !== 'closed' && (
               <>
                 {!showOrderInput ? (
-                   <div className="mb-2">
+                   <div className="mb-2 flex items-center gap-2">
                     <Button variant="outline" size="sm" onClick={() => setShowOrderInput(true)}>
                       <ShoppingCart className="mr-2 h-4 w-4"/>
                       Order Status
@@ -277,6 +322,10 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
               }}
               className="flex items-center gap-2"
             >
+              <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*,.pdf"/>
+               <Button type="button" variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isPending || isAiTyping || ticket?.status === 'closed'}>
+                  <Paperclip className="w-5 h-5"/>
+              </Button>
               <Textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -296,7 +345,7 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
                 size="icon"
                 disabled={!input.trim() || isPending || isAiTyping || ticket?.status === 'closed'}
               >
-                <ArrowUp className="w-5 h-5" />
+                {isPending ? <Loader2 className="w-5 h-5 animate-spin"/> : <ArrowUp className="w-5 h-5" />}
               </Button>
             </form>
           </div>
