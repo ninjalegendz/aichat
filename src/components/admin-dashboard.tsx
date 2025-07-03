@@ -71,7 +71,7 @@ import { Label } from "./ui/label";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Sheet, SheetContent } from "./ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "./ui/sheet";
 
 export function AdminDashboard() {
   const router = useRouter();
@@ -690,6 +690,7 @@ export function AdminDashboard() {
             {selectedTicket && (isMobile ? (
               <Sheet open={isDetailsPanelOpen} onOpenChange={setIsDetailsPanelOpen}>
                 <SheetContent className="p-0 w-[85vw] sm:max-w-sm">
+                  <SheetTitle className="sr-only">Customer Details</SheetTitle>
                   <DetailsPanel />
                 </SheetContent>
               </Sheet>
