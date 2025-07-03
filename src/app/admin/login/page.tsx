@@ -25,6 +25,7 @@ export default function AdminLoginPage() {
                         <p className="font-semibold text-card-foreground">Demo Account</p>
                         <p><strong>Email:</strong> admin@example.com</p>
                         <p><strong>Password:</strong> password</p>
+                        <p className="mt-2 text-xs"><strong>Note:</strong> You must create this user in your Firebase project's Authentication tab first.</p>
                     </div>
                 </div>
             </Card>
