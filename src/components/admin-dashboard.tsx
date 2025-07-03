@@ -52,6 +52,7 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarSeparator,
+  SidebarTrigger,
 } from "./ui/sidebar";
 import { Textarea } from "./ui/textarea";
 import { signOut } from "firebase/auth";
@@ -69,11 +70,14 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Sheet, SheetContent } from "./ui/sheet";
 
 export function AdminDashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -312,8 +316,6 @@ export function AdminDashboard() {
   // Effect to handle browser close/refresh for ticket reassignment
   useEffect(() => {
     const handleBeforeUnload = () => {
-      // This is a "best-effort" attempt to reassign tickets.
-      // Modern browsers may not wait for the async operations to complete.
       reassignAgentTicketsToAI();
     };
 
@@ -324,6 +326,110 @@ export function AdminDashboard() {
     };
   }, [tickets]); // Dependency ensures the handler has the latest tickets list.
 
+
+  const DetailsPanel = () => (
+    <Card className="w-full h-full border-0 rounded-none flex flex-col">
+      <CardHeader className="border-b">
+        <div className="flex justify-between items-center">
+            <CardTitle className="flex items-center gap-2">
+                <Contact className="w-6 h-6" /> Customer Details
+            </CardTitle>
+        </div>
+         <div className="flex items-center gap-2 pt-2 flex-wrap">
+            {selectedTicket?.status !== "agent" && (
+            <Button
+                size="sm"
+                onClick={() => handleTicketStatusChange("agent")}
+            >
+                <UserCheck className="mr-2 h-4 w-4" /> Take Over
+            </Button>
+            )}
+            {selectedTicket?.status === "agent" && (
+            <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => handleTicketStatusChange("ai")}
+            >
+                <Bot className="mr-2 h-4 w-4" /> Let AI Handle
+            </Button>
+            )}
+            {selectedTicket?.status !== "closed" && (
+            <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => handleTicketStatusChange("closed")}
+            >
+                <Archive className="mr-2 h-4 w-4" /> Close Ticket
+            </Button>
+            )}
+        </div>
+      </CardHeader>
+      <CardContent className="flex-1 space-y-4 overflow-y-auto pt-6">
+        <div className="space-y-2">
+          <Label htmlFor="customerName">Name</Label>
+          <Input
+            id="customerName"
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
+          />
+        </div>
+        {selectedTicket?.orderNumber && (
+          <div className="space-y-2">
+            <Label>Order Number</Label>
+            <div className="flex items-center gap-2 text-sm border p-2 rounded-md bg-muted">
+                <ShoppingCart className="w-4 h-4 text-muted-foreground"/>
+                <span>#{selectedTicket.orderNumber}</span>
+            </div>
+          </div>
+        )}
+        <div className="space-y-2">
+          <Label htmlFor="customerNotes" className="flex items-center gap-2">
+            <NotebookPen className="w-4 h-4"/> Notes
+          </Label>
+          <Textarea
+            id="customerNotes"
+            placeholder="Add notes about the customer..."
+            value={customerNotes}
+            onChange={(e) => setCustomerNotes(e.target.value)}
+            rows={5}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="ticketSummary" className="flex items-center justify-between">
+            <span className="flex items-center gap-2"><NotebookPen className="w-4 h-4"/> Summary</span>
+             <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleSummaryUpdate(selectedTicket!.id)}
+                disabled={isSummarizePending}
+              >
+                <RefreshCw
+                  className={cn("mr-2 h-4 w-4", isSummarizePending && "animate-spin")}
+                />
+                Generate
+              </Button>
+          </Label>
+          <Textarea
+            id="ticketSummary"
+            placeholder="A summary of the ticket..."
+            value={ticketSummary}
+            onChange={(e) => setTicketSummary(e.target.value)}
+            rows={6}
+          />
+        </div>
+      </CardContent>
+      <CardFooter>
+        <Button onClick={handleSaveChanges} disabled={isSaving} className="w-full">
+          {isSaving ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Save className="mr-2 h-4 w-4" />
+          )}
+          Save Changes
+        </Button>
+      </CardFooter>
+    </Card>
+  );
 
   return (
     <SidebarProvider>
@@ -337,7 +443,7 @@ export function AdminDashboard() {
                 alt="Brand Logo"
                 width={120}
                 height={28}
-                className="h-7 w-auto object-contain group-data-[collapsible=icon]:w-7"
+                className="h-7 w-auto object-contain group-data-[collapsible=icon]:hidden"
               />
             ) : (
               <>
@@ -426,245 +532,171 @@ export function AdminDashboard() {
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
-        <div className="flex h-screen">
-          <div className="flex-1 flex flex-col">
-            {selectedTicket ? (
-              <Card className="flex-1 flex flex-col h-full border-0 rounded-none">
-                <CardHeader className="flex-row items-center justify-between border-b">
-                  <div>
-                    <CardTitle>{selectedTicket.customer.name}</CardTitle>
-                    <CardDescription>
-                      ID: {selectedTicket.id.substring(0, 8)}
-                    </CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2">
-                     <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={handleToggleNotifications}
-                        title={notificationsEnabled ? 'Mute Notifications' : 'Unmute Notifications'}
-                    >
-                        {notificationsEnabled ? <Bell/> : <BellOff className="text-muted-foreground"/>}
-                    </Button>
-                    <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => setIsDetailsPanelOpen(prev => !prev)}
-                    >
-                        {isDetailsPanelOpen ? <PanelRightClose/> : <PanelRightOpen/>}
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
-                  <ScrollArea className="flex-1" ref={scrollAreaRef}>
-                    <div className="space-y-6 p-6">
-                      {messages.map((message) => (
-                        <div
-                          key={message.id}
-                          className={cn(
-                            "flex items-start gap-3",
-                            message.role === "user"
-                              ? "justify-end"
-                              : "justify-start"
-                          )}
-                        >
-                          {message.role !== "user" && (
-                            <Avatar className="w-8 h-8">
-                              <AvatarImage
-                                src={
-                                  message.role === "assistant"
-                                    ? `https://placehold.co/40x40/26A69A/FFFFFF/png?text=A`
-                                    : settings.agentAvatar
-                                }
-                              />
-                              <AvatarFallback>
-                                {message.role === "assistant" ? "A" : settings.agentName?.charAt(0) || 'S'}
-                              </AvatarFallback>
-                            </Avatar>
-                          )}
+        <div className="flex h-screen flex-col">
+          {/* Mobile Header */}
+          <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4 md:hidden">
+            <SidebarTrigger />
+            <div className="flex-1 truncate">
+              {selectedTicket ? (
+                <h1 className="font-semibold">{selectedTicket.customer.name}</h1>
+              ) : (
+                <h1 className="font-semibold">Dashboard</h1>
+              )}
+            </div>
+            {selectedTicket && (
+              <Button variant="ghost" size="icon" onClick={() => setIsDetailsPanelOpen(true)}>
+                <Contact className="h-5 w-5" />
+                <span className="sr-only">Customer Details</span>
+              </Button>
+            )}
+          </header>
+
+          <div className="flex flex-1 overflow-hidden">
+            <div className="flex-1 flex flex-col">
+              {selectedTicket ? (
+                <Card className="flex-1 flex flex-col h-full border-0 rounded-none">
+                  <CardHeader className="hidden md:flex flex-row items-center justify-between border-b">
+                    <div>
+                      <CardTitle>{selectedTicket.customer.name}</CardTitle>
+                      <CardDescription>
+                        ID: {selectedTicket.id.substring(0, 8)}
+                      </CardDescription>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={handleToggleNotifications}
+                          title={notificationsEnabled ? 'Mute Notifications' : 'Unmute Notifications'}
+                      >
+                          {notificationsEnabled ? <Bell/> : <BellOff className="text-muted-foreground"/>}
+                      </Button>
+                      <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setIsDetailsPanelOpen(prev => !prev)}
+                      >
+                          {isDetailsPanelOpen ? <PanelRightClose/> : <PanelRightOpen/>}
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
+                    <ScrollArea className="flex-1" ref={scrollAreaRef}>
+                      <div className="space-y-6 p-4 md:p-6">
+                        {messages.map((message) => (
                           <div
+                            key={message.id}
                             className={cn(
-                              "max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl",
+                              "flex items-start gap-3",
                               message.role === "user"
-                                ? "bg-muted rounded-br-none"
-                                : message.role === "agent"
-                                ? "bg-primary text-primary-foreground rounded-bl-none"
-                                : "bg-card border rounded-bl-none"
+                                ? "justify-end"
+                                : "justify-start"
                             )}
                           >
-                            <div className="text-sm prose" style={{ whiteSpace: 'pre-wrap' }}>{linkify(message.content)}</div>
-                            <p
+                            {message.role !== "user" && (
+                              <Avatar className="w-8 h-8">
+                                <AvatarImage
+                                  src={
+                                    message.role === "assistant"
+                                      ? undefined
+                                      : settings.agentAvatar
+                                  }
+                                />
+                                <AvatarFallback>
+                                  {message.role === "assistant" ? "A" : settings.agentName?.charAt(0) || 'S'}
+                                </AvatarFallback>
+                              </Avatar>
+                            )}
+                            <div
                               className={cn(
-                                "text-xs mt-1",
-                                message.role === "agent"
-                                  ? "text-primary-foreground/70"
-                                  : "text-muted-foreground/70"
+                                "max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl",
+                                message.role === "user"
+                                  ? "bg-muted rounded-br-none"
+                                  : message.role === "agent"
+                                  ? "bg-primary text-primary-foreground rounded-bl-none"
+                                  : "bg-card border rounded-bl-none"
                               )}
                             >
-                              {format(new Date(message.createdAt), "p")}
-                            </p>
+                              <div className="text-sm prose" style={{ whiteSpace: 'pre-wrap' }}>{linkify(message.content)}</div>
+                              <p
+                                className={cn(
+                                  "text-xs mt-1",
+                                  message.role === "agent"
+                                    ? "text-primary-foreground/70"
+                                    : "text-muted-foreground/70"
+                                )}
+                              >
+                                {format(new Date(message.createdAt), "p")}
+                              </p>
+                            </div>
+                            {message.role === "user" && (
+                              <Avatar className="w-8 h-8">
+                                <AvatarImage
+                                  src={selectedTicket.customer.avatar}
+                                />
+                                <AvatarFallback>
+                                  {selectedTicket.customer.name.charAt(0)}
+                                </AvatarFallback>
+                              </Avatar>
+                            )}
                           </div>
-                          {message.role === "user" && (
-                            <Avatar className="w-8 h-8">
-                              <AvatarImage
-                                src={selectedTicket.customer.avatar}
-                              />
-                              <AvatarFallback>
-                                {selectedTicket.customer.name.charAt(0)}
-                              </AvatarFallback>
-                            </Avatar>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                   <div className="p-4 border-t bg-background/80">
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        handleAgentSendMessage();
-                      }}
-                      className="flex items-center gap-2 w-full"
-                    >
-                      <Textarea
-                        value={agentInput}
-                        onChange={(e) => setAgentInput(e.target.value)}
-                        placeholder="Type your response as an agent..."
-                        className="flex-1 resize-none"
-                        rows={1}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault();
-                            handleAgentSendMessage();
-                          }
+                        ))}
+                      </div>
+                    </ScrollArea>
+                    <div className="p-4 border-t bg-background/80">
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          handleAgentSendMessage();
                         }}
-                        disabled={selectedTicket.status === "closed" || isSending}
-                      />
-                      <Button
-                        type="submit"
-                        size="icon"
-                        disabled={
-                          !agentInput.trim() || selectedTicket.status === "closed" || isSending
-                        }
+                        className="flex items-center gap-2 w-full"
                       >
-                        {isSending ? <Loader2 className="w-5 h-5 animate-spin"/> : <Send className="w-5 h-5" />}
-                      </Button>
-                    </form>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
-                <MessageSquare className="w-16 h-16 mb-4" />
-                <h2 className="text-xl font-semibold">Select a ticket</h2>
-                <p>Choose a conversation from the left to view details.</p>
-              </div>
-            )}
-          </div>
-
-          {selectedTicket && isDetailsPanelOpen && (
-            <Card className="w-96 border-l-2 rounded-none flex flex-col transition-all duration-300 ease-in-out">
-              <CardHeader className="border-b">
-                <div className="flex justify-between items-center">
-                    <CardTitle className="flex items-center gap-2">
-                        <Contact className="w-6 h-6" /> Customer Details
-                    </CardTitle>
-                </div>
-                 <div className="flex items-center gap-2 pt-2 flex-wrap">
-                    {selectedTicket.status !== "agent" && (
-                    <Button
-                        size="sm"
-                        onClick={() => handleTicketStatusChange("agent")}
-                    >
-                        <UserCheck className="mr-2 h-4 w-4" /> Take Over
-                    </Button>
-                    )}
-                    {selectedTicket.status === "agent" && (
-                    <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => handleTicketStatusChange("ai")}
-                    >
-                        <Bot className="mr-2 h-4 w-4" /> Let AI Handle
-                    </Button>
-                    )}
-                    {selectedTicket.status !== "closed" && (
-                    <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleTicketStatusChange("closed")}
-                    >
-                        <Archive className="mr-2 h-4 w-4" /> Close Ticket
-                    </Button>
-                    )}
-                </div>
-              </CardHeader>
-              <CardContent className="flex-1 space-y-4 overflow-y-auto pt-6">
-                <div className="space-y-2">
-                  <Label htmlFor="customerName">Name</Label>
-                  <Input
-                    id="customerName"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                  />
-                </div>
-                {selectedTicket.orderNumber && (
-                  <div className="space-y-2">
-                    <Label>Order Number</Label>
-                    <div className="flex items-center gap-2 text-sm border p-2 rounded-md bg-muted">
-                        <ShoppingCart className="w-4 h-4 text-muted-foreground"/>
-                        <span>#{selectedTicket.orderNumber}</span>
-                    </div>
-                  </div>
-                )}
-                <div className="space-y-2">
-                  <Label htmlFor="customerNotes" className="flex items-center gap-2">
-                    <NotebookPen className="w-4 h-4"/> Notes
-                  </Label>
-                  <Textarea
-                    id="customerNotes"
-                    placeholder="Add notes about the customer..."
-                    value={customerNotes}
-                    onChange={(e) => setCustomerNotes(e.target.value)}
-                    rows={5}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ticketSummary" className="flex items-center justify-between">
-                    <span className="flex items-center gap-2"><NotebookPen className="w-4 h-4"/> Summary</span>
-                     <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleSummaryUpdate(selectedTicket.id)}
-                        disabled={isSummarizePending}
-                      >
-                        <RefreshCw
-                          className={cn("mr-2 h-4 w-4", isSummarizePending && "animate-spin")}
+                        <Textarea
+                          value={agentInput}
+                          onChange={(e) => setAgentInput(e.target.value)}
+                          placeholder="Type your response as an agent..."
+                          className="flex-1 resize-none"
+                          rows={1}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                              e.preventDefault();
+                              handleAgentSendMessage();
+                            }
+                          }}
+                          disabled={selectedTicket.status === "closed" || isSending}
                         />
-                        Generate
-                      </Button>
-                  </Label>
-                  <Textarea
-                    id="ticketSummary"
-                    placeholder="A summary of the ticket..."
-                    value={ticketSummary}
-                    onChange={(e) => setTicketSummary(e.target.value)}
-                    rows={6}
-                  />
+                        <Button
+                          type="submit"
+                          size="icon"
+                          disabled={
+                            !agentInput.trim() || selectedTicket.status === "closed" || isSending
+                          }
+                        >
+                          {isSending ? <Loader2 className="w-5 h-5 animate-spin"/> : <Send className="w-5 h-5" />}
+                        </Button>
+                      </form>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground p-4">
+                  <MessageSquare className="w-16 h-16 mb-4" />
+                  <h2 className="text-xl font-semibold">Select a ticket</h2>
+                  <p>Choose a conversation from the left to view details.</p>
                 </div>
-              </CardContent>
-              <CardFooter>
-                <Button onClick={handleSaveChanges} disabled={isSaving} className="w-full">
-                  {isSaving ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="mr-2 h-4 w-4" />
-                  )}
-                  Save Changes
-                </Button>
-              </CardFooter>
-            </Card>
-          )}
+              )}
+            </div>
+
+            {selectedTicket && (isMobile ? (
+              <Sheet open={isDetailsPanelOpen} onOpenChange={setIsDetailsPanelOpen}>
+                <SheetContent className="p-0 w-[85vw] sm:max-w-sm">
+                  <DetailsPanel />
+                </SheetContent>
+              </Sheet>
+            ) : (
+              isDetailsPanelOpen && <div className="w-96 border-l-2"><DetailsPanel /></div>
+            ))}
+          </div>
         </div>
       </SidebarInset>
     </SidebarProvider>

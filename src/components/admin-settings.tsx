@@ -206,14 +206,14 @@ export function AdminSettings() {
            </div>
 
         </CardContent>
-         <CardFooter className="flex justify-between items-center pt-6 border-t">
-             <Link href="/admin">
-                <Button variant="outline">
+         <CardFooter className="flex flex-col-reverse sm:flex-row sm:justify-between items-center gap-4 pt-6 border-t">
+             <Link href="/admin" className="w-full sm:w-auto">
+                <Button variant="outline" className="w-full">
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back to Dashboard
                 </Button>
             </Link>
-            <Button onClick={handleSaveChanges} disabled={isSaving}>
+            <Button onClick={handleSaveChanges} disabled={isSaving} className="w-full sm:w-auto">
               {isSaving ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (

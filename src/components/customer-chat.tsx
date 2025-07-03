@@ -158,29 +158,29 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
 
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background">
-      <Card className="w-full max-w-2xl h-[90vh] flex flex-col shadow-2xl">
+    <div className="min-h-screen bg-background md:flex md:items-center md:justify-center md:p-4">
+      <Card className="w-full h-screen md:h-[90vh] md:max-w-2xl flex flex-col md:shadow-2xl md:rounded-lg">
         <CardHeader className="border-b">
-          <CardTitle className="flex items-center gap-3 text-primary font-headline">
+          <CardTitle className="flex items-center gap-3 h-8 text-primary font-headline">
             {settings.brandLogoUrl ? (
                 <Image 
                 src={settings.brandLogoUrl} 
                 alt="Brand Logo" 
                 width={150} 
                 height={32}
-                className="h-8 w-auto object-contain"
+                className="h-full w-auto object-contain"
                 />
             ) : (
                 <>
                 <BrainCircuit className="w-8 h-8" />
-                <span>ShopAssist AI</span>
+                <span className="text-2xl">ShopAssist AI</span>
                 </>
             )}
           </CardTitle>
         </CardHeader>
         <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
           <ScrollArea className="flex-1" ref={scrollAreaRef}>
-            <div className="space-y-6 p-6">
+            <div className="space-y-6 p-4 md:p-6">
               {messages.map((message) => (
                 <div
                   key={message.id}
