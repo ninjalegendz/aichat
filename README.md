@@ -39,19 +39,19 @@ This project uses Firebase for Authentication, Firestore, and Storage.
 
 1.  Go to the **Firestore Database** tab.
 2.  Click "Create database".
-3.  Start in **Production mode** and click "Next".
+3.  Start in **Test mode** and click "Next". This will allow open access for development. For production, you should use "Production mode" and secure your data.
 4.  Choose a location and click "Enable".
 5.  Go to the **Rules** tab for your Firestore database.
-6.  **IMPORTANT:** Copy the contents of the `firestore.rules` file from this project and paste them into the rules editor. This will allow the app to read from and write to the database.
+6.  **IMPORTANT:** Copy the contents of the `firestore.rules` file from this project and paste them into the rules editor.
 7.  Click "Publish".
 
 **Storage:**
 
 1.  Go to the **Storage** tab.
 2.  Click "Get started".
-3.  Follow the setup wizard, selecting **Production mode**.
+3.  Follow the setup wizard, selecting **Test mode**.
 4.  After the storage bucket is created, go to the **Rules** tab.
-5.  **IMPORTANT:** Copy the contents of the `storage.rules` file from this project and paste them into the rules editor in the Firebase console. This is required to allow file uploads.
+5.  **IMPORTANT:** Copy the contents of the `storage.rules` file from this project and paste them into the rules editor in the Firebase console.
 6.  Click "Publish".
 
 ### 4. Run the Development Server
