@@ -1,7 +1,7 @@
 
 import { LoginForm } from "@/components/login-form";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BrainCircuit } from "lucide-react";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { BrainCircuit, Info } from "lucide-react";
 
 export default function AdminLoginPage() {
   return (
@@ -17,6 +17,18 @@ export default function AdminLoginPage() {
         <CardContent>
           <LoginForm />
         </CardContent>
+        <CardFooter>
+            <Card className="w-full text-sm text-muted-foreground p-3 bg-muted/50 border-dashed">
+                <div className="flex items-start gap-3">
+                    <Info className="w-5 h-5 mt-0.5 flex-shrink-0"/>
+                    <div>
+                        <p className="font-semibold text-card-foreground">Demo Account</p>
+                        <p><strong>Email:</strong> admin@example.com</p>
+                        <p><strong>Password:</strong> password</p>
+                    </div>
+                </div>
+            </Card>
+        </CardFooter>
       </Card>
     </main>
   );
