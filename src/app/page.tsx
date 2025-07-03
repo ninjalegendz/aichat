@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { CustomerChat } from "@/components/customer-chat";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Bot } from "lucide-react";
+import { getOrCreateTicket } from "@/lib/firestore-service";
 
 // This wrapper handles the logic of finding or creating a ticket ID.
 // This prevents hydration errors by ensuring localStorage is only accessed on the client.
@@ -18,19 +19,23 @@ const CustomerChatWrapper = () => {
     if (!id) {
       id = crypto.randomUUID();
       localStorage.setItem("shopassist_ticket_id", id);
-      
-      const newTicket = {
-        id,
-        messages: [],
-        status: 'ai',
-        lastUpdate: new Date().toISOString(),
-        customer: { name: `Customer ${id.substring(0, 4)}`, avatar: `https://placehold.co/40x40/64B5F6/FFFFFF/png?text=C` },
-        summary: "New conversation"
-      };
-      localStorage.setItem(`shopassist_ticket_${id}`, JSON.stringify(newTicket));
     }
-    setTicketId(id);
-    setIsLoading(false);
+    
+    const initializeTicket = async (id: string) => {
+        try {
+            // This will create a ticket in Firestore if it doesn't exist
+            await getOrCreateTicket(id);
+            setTicketId(id);
+        } catch (error) {
+            console.error("Failed to initialize ticket:", error);
+            // You could show an error message to the user here
+        } finally {
+            setIsLoading(false);
+        }
+    }
+    
+    initializeTicket(id);
+
   }, []);
 
   if (isLoading || !ticketId) {

@@ -3,6 +3,7 @@
 
 import { initialResponse } from "@/ai/flows/initial-response-flow";
 import { summarizeTicket } from "@/ai/flows/summarize-ticket-flow";
+import { getMessages, updateTicket } from "@/lib/firestore-service";
 
 const KNOWLEDGE_BASE = `
 ShopAssist AI FAQ:
@@ -27,15 +28,20 @@ export async function getAiResponse(query: string, chatHistory: string) {
   }
 }
 
-export async function getTicketSummary(chatHistory: string) {
-  if (!chatHistory || chatHistory.trim().length === 0) {
+export async function summarizeAndSaveTicket(ticketId: string) {
+  const messages = await getMessages(ticketId);
+  if (!messages || messages.length === 0) {
+    await updateTicket(ticketId, { summary: "New conversation" });
     return "New conversation";
   }
+  const chatHistory = messages.map((m) => `${m.role}: ${m.content}`).join("\n");
   try {
     const response = await summarizeTicket({ chatHistory });
+    await updateTicket(ticketId, { summary: response.summary });
     return response.summary;
   } catch (error) {
     console.error("Error summarizing ticket:", error);
+    await updateTicket(ticketId, { summary: "Could not generate summary." });
     return "Could not generate summary.";
   }
 }

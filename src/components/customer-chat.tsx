@@ -3,7 +3,7 @@
 
 import type { Message, Ticket } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { ArrowUp, Bot, User, BrainCircuit } from "lucide-react";
+import { ArrowUp, BrainCircuit } from "lucide-react";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
@@ -12,6 +12,16 @@ import { ScrollArea } from "./ui/scroll-area";
 import { Textarea } from "./ui/textarea";
 import { getAiResponse } from "@/app/actions";
 import { format } from "date-fns";
+import { db } from "@/lib/firebase";
+import { addMessage } from "@/lib/firestore-service";
+import {
+  collection,
+  query,
+  orderBy,
+  onSnapshot,
+  doc,
+  Timestamp,
+} from "firebase/firestore";
 
 const TypingIndicator = () => (
   <div className="flex items-center space-x-2">
@@ -23,6 +33,7 @@ const TypingIndicator = () => (
 
 export function CustomerChat({ ticketId }: { ticketId: string }) {
   const [ticket, setTicket] = useState<Ticket | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isAiTyping, setIsAiTyping] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -37,69 +48,77 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
     }
   };
 
-  const loadTicket = () => {
-    const storedTicket = localStorage.getItem(`shopassist_ticket_${ticketId}`);
-    if (storedTicket) {
-      setTicket(JSON.parse(storedTicket));
-    }
-  };
-
   useEffect(() => {
-    loadTicket();
-    
-    const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === `shopassist_ticket_${ticketId}`) {
-        loadTicket();
+    // Listener for the ticket document itself
+    const ticketRef = doc(db, "tickets", ticketId);
+    const unsubscribeTicket = onSnapshot(ticketRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setTicket({
+          id: docSnap.id,
+          ...data,
+          lastUpdate: (data.lastUpdate as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+        } as Ticket);
       }
-    };
+    });
 
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    // Listener for messages subcollection
+    const messagesQuery = query(
+      collection(db, `tickets/${ticketId}/messages`),
+      orderBy("createdAt", "asc")
+    );
+    const unsubscribeMessages = onSnapshot(messagesQuery, (querySnapshot) => {
+      const newMessages: Message[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        newMessages.push({
+          id: doc.id,
+          ...data,
+          createdAt:
+            (data.createdAt as Timestamp)?.toDate().toISOString() ||
+            new Date().toISOString(),
+        } as Message);
+      });
+      setMessages(newMessages);
+    });
+
+    return () => {
+      unsubscribeTicket();
+      unsubscribeMessages();
+    };
   }, [ticketId]);
 
   useEffect(() => {
     scrollToBottom();
-  }, [ticket?.messages]);
+  }, [messages]);
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!input.trim() || !ticket) return;
 
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
+    const userMessage: Omit<Message, "id" | "createdAt"> = {
       role: "user",
       content: input,
-      createdAt: new Date().toISOString(),
     };
 
-    const updatedTicket: Ticket = {
-      ...ticket,
-      messages: [...ticket.messages, userMessage],
-      lastUpdate: new Date().toISOString(),
-    };
-
-    setTicket(updatedTicket);
-    localStorage.setItem(`shopassist_ticket_${ticketId}`, JSON.stringify(updatedTicket));
+    const currentInput = input;
     setInput("");
-    
-    if(updatedTicket.status === 'ai') {
+    await addMessage(ticketId, userMessage);
+
+    if (ticket.status === "ai") {
       setIsAiTyping(true);
       startTransition(async () => {
-        const chatHistory = updatedTicket.messages.map(m => `${m.role}: ${m.content}`).join('\n');
-        const aiResponseContent = await getAiResponse(input, chatHistory);
-        const aiMessage: Message = {
-          id: crypto.randomUUID(),
+        const tempUserMessage = { ...userMessage, id: 'temp', createdAt: new Date().toISOString() };
+        const chatHistory = [...messages, tempUserMessage]
+          .map((m) => `${m.role}: ${m.content}`)
+          .join("\n");
+        const aiResponseContent = await getAiResponse(currentInput, chatHistory);
+
+        const aiMessage: Omit<Message, "id" | "createdAt"> = {
           role: "assistant",
           content: aiResponseContent,
-          createdAt: new Date().toISOString(),
         };
 
-        const finalTicket = {
-            ...updatedTicket,
-            messages: [...updatedTicket.messages, aiMessage]
-        };
-
-        setTicket(finalTicket);
-        localStorage.setItem(`shopassist_ticket_${ticketId}`, JSON.stringify(finalTicket));
+        await addMessage(ticketId, aiMessage);
         setIsAiTyping(false);
       });
     }
@@ -110,14 +129,14 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
       <Card className="w-full max-w-2xl h-[90vh] flex flex-col shadow-2xl">
         <CardHeader className="border-b">
           <CardTitle className="flex items-center gap-3 text-primary font-headline">
-            <BrainCircuit className="w-8 h-8"/>
+            <BrainCircuit className="w-8 h-8" />
             ShopAssist AI
           </CardTitle>
         </CardHeader>
         <CardContent className="flex-1 flex flex-col p-0">
           <ScrollArea className="flex-1 p-6" ref={scrollAreaRef}>
             <div className="space-y-6">
-              {ticket?.messages.map((message) => (
+              {messages.map((message) => (
                 <div
                   key={message.id}
                   className={cn(
@@ -127,34 +146,59 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
                 >
                   {message.role !== "user" && (
                     <Avatar className="w-8 h-8">
-                       <AvatarImage src={message.role === 'assistant' ? `https://placehold.co/40x40/26A69A/FFFFFF/png?text=A` : `https://placehold.co/40x40/1E88E5/FFFFFF/png?text=S`} />
-                       <AvatarFallback>{message.role === 'assistant' ? 'A' : 'S'}</AvatarFallback>
+                      <AvatarImage
+                        src={
+                          message.role === "assistant"
+                            ? `https://placehold.co/40x40/26A69A/FFFFFF/png?text=A`
+                            : `https://placehold.co/40x40/1E88E5/FFFFFF/png?text=S`
+                        }
+                      />
+                      <AvatarFallback>
+                        {message.role === "assistant" ? "A" : "S"}
+                      </AvatarFallback>
                     </Avatar>
                   )}
-                  <div className={cn(
+                  <div
+                    className={cn(
                       "max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl animate-in fade-in zoom-in-95",
-                      message.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-none' : 'bg-card border rounded-bl-none',
-                    )}>
+                      message.role === "user"
+                        ? "bg-primary text-primary-foreground rounded-br-none"
+                        : "bg-card border rounded-bl-none"
+                    )}
+                  >
                     <p className="text-sm">{message.content}</p>
-                    <p className={cn("text-xs mt-1", message.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground/70')}>{format(new Date(message.createdAt), 'p')}</p>
+                    <p
+                      className={cn(
+                        "text-xs mt-1",
+                        message.role === "user"
+                          ? "text-primary-foreground/70"
+                          : "text-muted-foreground/70"
+                      )}
+                    >
+                      {format(new Date(message.createdAt), "p")}
+                    </p>
                   </div>
-                  {message.role === "user" && (
+                  {message.role === "user" && ticket?.customer && (
                     <Avatar className="w-8 h-8">
-                       <AvatarImage src={ticket.customer.avatar} />
-                       <AvatarFallback>{ticket.customer.name.charAt(0)}</AvatarFallback>
+                      <AvatarImage src={ticket.customer.avatar} />
+                      <AvatarFallback>
+                        {ticket.customer.name.charAt(0)}
+                      </AvatarFallback>
                     </Avatar>
                   )}
                 </div>
               ))}
               {isAiTyping && (
                 <div className="flex items-start gap-3 justify-start">
-                   <Avatar className="w-8 h-8">
-                        <AvatarImage src={`https://placehold.co/40x40/26A69A/FFFFFF/png?text=A`} />
-                        <AvatarFallback>A</AvatarFallback>
-                    </Avatar>
-                    <div className="max-w-xs md:max-w-md lg:max-w-lg px-4 py-3 rounded-2xl bg-card border rounded-bl-none">
-                        <TypingIndicator />
-                    </div>
+                  <Avatar className="w-8 h-8">
+                    <AvatarImage
+                      src={`https://placehold.co/40x40/26A69A/FFFFFF/png?text=A`}
+                    />
+                    <AvatarFallback>A</AvatarFallback>
+                  </Avatar>
+                  <div className="max-w-xs md:max-w-md lg:max-w-lg px-4 py-3 rounded-2xl bg-card border rounded-bl-none">
+                    <TypingIndicator />
+                  </div>
                 </div>
               )}
             </div>
@@ -174,14 +218,18 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
                 className="flex-1 resize-none"
                 rows={1}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
+                  if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
                     handleSendMessage();
                   }
                 }}
-                disabled={isPending || isAiTyping}
+                disabled={isPending || isAiTyping || ticket?.status === 'closed'}
               />
-              <Button type="submit" size="icon" disabled={!input.trim() || isPending || isAiTyping}>
+              <Button
+                type="submit"
+                size="icon"
+                disabled={!input.trim() || isPending || isAiTyping || ticket?.status === 'closed'}
+              >
                 <ArrowUp className="w-5 h-5" />
               </Button>
             </form>

@@ -1,30 +1,35 @@
 
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useRouter, usePathname } from "next/navigation";
+import { useEffect, useState, ReactNode } from "react";
+import { onAuthStateChanged, User } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 import { Bot } from "lucide-react";
 
 export default function AdminLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   const router = useRouter();
-  const [isVerified, setIsVerified] = useState(false);
+  const pathname = usePathname();
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const isAuthenticated = localStorage.getItem("shopassist_auth") === "true";
-    if (!isAuthenticated) {
-      router.push("/admin/login");
-    } else {
-      setIsVerified(true);
-    }
-  }, [router]);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user && pathname !== "/admin/login") {
+        router.push("/admin/login");
+      } else {
+        setLoading(false);
+      }
+    });
 
-  if (!isVerified) {
-    return (
+    return () => unsubscribe();
+  }, [router, pathname]);
+
+  if (loading) {
+     return (
        <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4">
         <div className="flex items-center space-x-4 text-2xl font-medium text-primary mb-4">
           <Bot className="w-10 h-10 animate-pulse" />

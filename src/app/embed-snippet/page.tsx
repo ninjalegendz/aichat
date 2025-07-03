@@ -4,11 +4,18 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Check, Clipboard, Code } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 
-const Snippet = `
+export default function EmbedSnippetPage() {
+    const [snippet, setSnippet] = useState("");
+    const [hasCopied, setHasCopied] = useState(false);
+    const { toast } = useToast();
+
+     useEffect(() => {
+        const origin = window.location.origin;
+        setSnippet(`
 <!-- ShopAssist AI Embed Start -->
 <style>
   #shopassist-bubble {
@@ -68,7 +75,7 @@ const Snippet = `
   </svg>
 </div>
 <div id="shopassist-iframe-container">
-  <iframe id="shopassist-iframe" src="${typeof window !== 'undefined' ? window.location.origin : 'https://YOUR_APP_URL.com'}"></iframe>
+  <iframe id="shopassist-iframe" src="${origin}"></iframe>
 </div>
 <script>
   document.addEventListener('DOMContentLoaded', () => {
@@ -80,16 +87,12 @@ const Snippet = `
     });
   });
 </script>
-<!-- ShopAssist AI Embed End -->
-`;
-
-
-export default function EmbedSnippetPage() {
-    const [hasCopied, setHasCopied] = useState(false);
-    const { toast } = useToast();
+<!-- ShopAssist AI Embed End -->`.trim());
+    }, []);
 
     const handleCopy = () => {
-        navigator.clipboard.writeText(Snippet.trim());
+        if (!snippet) return;
+        navigator.clipboard.writeText(snippet);
         setHasCopied(true);
         toast({
             title: "Copied to clipboard!",
@@ -97,6 +100,7 @@ export default function EmbedSnippetPage() {
         });
         setTimeout(() => setHasCopied(false), 2000);
     }
+
   return (
     <main className="flex flex-col items-center justify-center min-h-screen bg-background p-4 md:p-8">
       <Card className="w-full max-w-3xl">
@@ -113,9 +117,9 @@ export default function EmbedSnippetPage() {
         <CardContent>
           <div className="relative">
              <pre className="bg-muted p-4 rounded-md overflow-x-auto text-sm font-code">
-                <code>{Snippet.trim()}</code>
+                <code>{snippet || 'Loading snippet...'}</code>
             </pre>
-            <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={handleCopy}>
+            <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={handleCopy} disabled={!snippet}>
                 {hasCopied ? <Check className="w-5 h-5 text-green-500"/> : <Clipboard className="w-5 h-5" />}
             </Button>
           </div>
