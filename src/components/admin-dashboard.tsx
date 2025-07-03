@@ -144,7 +144,7 @@ export function AdminDashboard() {
       (t) => t.status === "needs-attention" && !notifiedTickets.has(t.id)
     );
     if (ticketNeedsAttention) {
-      audioRef.current?.play().catch(e => console.error("Error playing notification sound:", e));
+      audioRef.current?.play().catch(() => {});
       setNotifiedTickets((prev) => new Set(prev).add(ticketNeedsAttention.id));
       toast({
         title: "Agent Required",
@@ -264,6 +264,13 @@ export function AdminDashboard() {
   };
 
   const handleLogout = async () => {
+    const agentTickets = tickets.filter((t) => t.status === 'agent');
+    if (agentTickets.length > 0) {
+        const updatePromises = agentTickets.map((ticket) =>
+            updateTicket(ticket.id, { status: 'ai' })
+        );
+        await Promise.all(updatePromises);
+    }
     await signOut(auth);
     router.push("/admin/login");
   };
