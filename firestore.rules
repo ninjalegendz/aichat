@@ -1,0 +1,13 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // WARNING: These rules are permissive and are intended for development purposes.
+    // They allow any client to read and write to your entire database.
+    // Before deploying to production, you must secure your database.
+    // Learn more: https://firebase.google.com/docs/firestore/security/get-started
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
