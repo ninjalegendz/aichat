@@ -2,7 +2,7 @@
 "use client";
 
 import type { Message, Settings, Ticket } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, linkify } from "@/lib/utils";
 import { ArrowUp, BrainCircuit, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
@@ -133,7 +133,7 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
           </CardTitle>
         </CardHeader>
         <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
-          <ScrollArea className="p-6" ref={scrollAreaRef}>
+          <ScrollArea className="flex-1 p-6" ref={scrollAreaRef}>
             <div className="space-y-6">
               {messages.map((message) => (
                 <div
@@ -165,7 +165,7 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
                         : "bg-card border rounded-bl-none"
                     )}
                   >
-                    <p className="text-sm" style={{ whiteSpace: 'pre-wrap' }}>{message.content}</p>
+                    <p className="text-sm" style={{ whiteSpace: 'pre-wrap' }}>{linkify(message.content)}</p>
 
                     <p
                       className={cn(

@@ -3,7 +3,7 @@
 
 import { summarizeAndSaveTicket, getSettingsAction } from "@/app/actions";
 import type { Message, Settings, Ticket } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, linkify } from "@/lib/utils";
 import {
   Archive,
   Bot,
@@ -334,7 +334,7 @@ export function AdminDashboard() {
                   </div>
                 </CardHeader>
                 <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
-                  <ScrollArea className="p-6" ref={scrollAreaRef}>
+                  <ScrollArea className="flex-1 p-6" ref={scrollAreaRef}>
                     <div className="space-y-6">
                       {messages.map((message) => (
                         <div
@@ -370,7 +370,7 @@ export function AdminDashboard() {
                                 : "bg-card border rounded-bl-none"
                             )}
                           >
-                            <p className="text-sm" style={{ whiteSpace: 'pre-wrap' }}>{message.content}</p>
+                            <p className="text-sm" style={{ whiteSpace: 'pre-wrap' }}>{linkify(message.content)}</p>
                             <p
                               className={cn(
                                 "text-xs mt-1",
