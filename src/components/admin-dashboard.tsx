@@ -359,7 +359,7 @@ export function AdminDashboard() {
     setIsQuickReplyOpen(false);
   };
 
-  const handleDownloadTranscript = (format: 'txt' | 'json') => {
+  const handleDownloadTranscript = (downloadFormat: 'txt' | 'json') => {
     if (!selectedTicket || messages.length === 0) return;
 
     let content = '';
@@ -368,7 +368,7 @@ export function AdminDashboard() {
 
     const fileName = `transcript-${selectedTicket.id.substring(0, 8)}-${new Date().toISOString().split('T')[0]}`;
 
-    if (format === 'txt') {
+    if (downloadFormat === 'txt') {
         content = messages.map(msg => {
             const timestamp = format(new Date(msg.createdAt), 'yyyy-MM-dd HH:mm:ss');
             const role = msg.role.charAt(0).toUpperCase() + msg.role.slice(1);
@@ -380,7 +380,7 @@ export function AdminDashboard() {
         }).join('\n----------------------------------------\n');
         mimeType = 'text/plain';
         fileExtension = 'txt';
-    } else if (format === 'json') {
+    } else if (downloadFormat === 'json') {
         content = JSON.stringify(messages, null, 2);
         mimeType = 'application/json';
         fileExtension = 'json';
@@ -859,3 +859,5 @@ export function AdminDashboard() {
     </SidebarProvider>
   );
 }
+
+    
