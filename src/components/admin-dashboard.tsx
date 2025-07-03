@@ -270,7 +270,7 @@ export function AdminDashboard() {
 
   return (
     <SidebarProvider>
-       <audio ref={audioRef} src="https://cdn.pixabay.com/download/audio/2022/10/14/audio_a7e3079c29.mp3" preload="auto" />
+       <audio ref={audioRef} src="https://files.catbox.moe/em648t.mp3" preload="auto" />
       <Sidebar variant="sidebar" collapsible="icon">
         <SidebarHeader>
           <div className="flex items-center gap-2 p-2 group-data-[collapsible=icon]:justify-center">
