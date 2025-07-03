@@ -3,7 +3,8 @@
 
 import { summarizeAndSaveTicket, getSettingsAction } from "@/app/actions";
 import type { Message, Settings, Ticket } from "@/lib/types";
-import { cn, linkify } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { linkify } from "@/lib/linkify";
 import {
   Archive,
   Bot,

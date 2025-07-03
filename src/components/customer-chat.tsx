@@ -2,7 +2,8 @@
 "use client";
 
 import type { Message, Settings, Ticket } from "@/lib/types";
-import { cn, linkify } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { linkify } from "@/lib/linkify";
 import { ArrowUp, BrainCircuit, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
