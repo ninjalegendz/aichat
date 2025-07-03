@@ -255,14 +255,6 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
                       message.role === "user" && "flex-row-reverse"
                     )}
                   >
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 self-center opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => setReplyingTo(message)}
-                    >
-                      <MessageSquareReply className="w-4 h-4" />
-                    </Button>
                     <div
                       className={cn(
                         "max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl animate-in fade-in zoom-in-95",
@@ -298,6 +290,14 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
                         {format(new Date(message.createdAt), "p")}
                       </p>
                     </div>
+                     <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 self-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => setReplyingTo(message)}
+                    >
+                      <MessageSquareReply className="w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
               ))}

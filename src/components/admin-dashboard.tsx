@@ -747,9 +747,6 @@ export function AdminDashboard() {
                                 message.role === "user" && "flex-row-reverse"
                               )}
                             >
-                                <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setReplyingTo(message)}>
-                                    <MessageSquareReply className="w-4 h-4"/>
-                                </Button>
                                 <div
                                 className={cn(
                                     "max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl",
@@ -773,6 +770,9 @@ export function AdminDashboard() {
                                     {format(new Date(message.createdAt), "p")}
                                 </p>
                                 </div>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setReplyingTo(message)}>
+                                    <MessageSquareReply className="w-4 h-4"/>
+                                </Button>
                             </div>
                           </div>
                         ))}
