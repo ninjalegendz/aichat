@@ -177,7 +177,7 @@ export function AdminDashboard() {
           <SidebarMenu>
             {tickets.map((ticket) => (
               <SidebarMenuItem key={ticket.id}>
-                <Link href={`/admin?ticketId=${ticket.id}`} legacyBehavior>
+                <Link href={`/admin?ticketId=${ticket.id}`}>
                   <SidebarMenuButton
                     isActive={selectedTicketId === ticket.id}
                     className="h-auto flex-col items-start p-2"
