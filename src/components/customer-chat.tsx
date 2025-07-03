@@ -23,6 +23,7 @@ import {
   doc,
   Timestamp,
 } from "firebase/firestore";
+import Image from "next/image";
 
 const TypingIndicator = () => (
   <div className="flex items-center space-x-2">
@@ -72,12 +73,6 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
     );
     const unsubscribeMessages = onSnapshot(messagesQuery, (querySnapshot) => {
       const newMessages: Message[] = [];
-      let shouldScroll = false;
-      const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
-      if (viewport) {
-        shouldScroll = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 100;
-      }
-      
       querySnapshot.forEach((doc) => {
         const data = doc.data();
         newMessages.push({
@@ -89,20 +84,29 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
         } as Message);
       });
       setMessages(newMessages);
-
-      if (shouldScroll) {
-        scrollToBottom();
-      }
     });
     
-    // Initial scroll
-    setTimeout(scrollToBottom, 100);
+    // Initial scroll to bottom
+    setTimeout(scrollToBottom, 200);
 
     return () => {
       unsubscribeTicket();
       unsubscribeMessages();
     };
   }, [ticketId]);
+
+  // Handle scrolling when new messages are added
+  useEffect(() => {
+    const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
+    if (viewport) {
+      // Only auto-scroll if user is already near the bottom
+      const isAtBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 150;
+      if (isAtBottom) {
+        scrollToBottom();
+      }
+    }
+  }, [messages]);
+
 
   const handleSendMessage = async () => {
     const textToSend = input.trim();
@@ -138,8 +142,20 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
       <Card className="w-full max-w-2xl h-[90vh] flex flex-col shadow-2xl">
         <CardHeader className="border-b">
           <CardTitle className="flex items-center gap-3 text-primary font-headline">
-            <BrainCircuit className="w-8 h-8" />
-            ShopAssist AI
+            {settings.brandLogoUrl ? (
+                <Image 
+                src={settings.brandLogoUrl} 
+                alt="Brand Logo" 
+                width={150} 
+                height={32}
+                className="h-8 w-auto object-contain"
+                />
+            ) : (
+                <>
+                <BrainCircuit className="w-8 h-8" />
+                <span>ShopAssist AI</span>
+                </>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
@@ -158,7 +174,7 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
                       <AvatarImage
                         src={
                           message.role === "assistant"
-                            ? `https://placehold.co/40x40/26A69A/FFFFFF/png?text=A`
+                            ? undefined // AI has no specific avatar, uses fallback
                             : settings.agentAvatar
                         }
                       />
@@ -201,10 +217,7 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
               {isAiTyping && (
                 <div className="flex items-start gap-3 justify-start">
                   <Avatar className="w-8 h-8">
-                    <AvatarImage
-                      src={`https://placehold.co/40x40/26A69A/FFFFFF/png?text=A`}
-                    />
-                    <AvatarFallback>A</AvatarFallback>
+                     <AvatarFallback>A</AvatarFallback>
                   </Avatar>
                   <div className="max-w-xs md:max-w-md lg:max-w-lg px-4 py-3 rounded-2xl bg-card border rounded-bl-none">
                     <TypingIndicator />

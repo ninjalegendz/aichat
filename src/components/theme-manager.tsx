@@ -3,11 +3,14 @@
 
 import { getSettingsAction } from '@/app/actions';
 import { hexToHslString } from '@/lib/utils';
+import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 
 export function ThemeManager({ children }: { children: React.ReactNode }) {
+    const pathname = usePathname();
+
     useEffect(() => {
-        const applyTheme = async () => {
+        const applyCustomerTheme = async () => {
             try {
                 const settings = await getSettingsAction();
                 if (settings.primaryColor) {
@@ -24,8 +27,22 @@ export function ThemeManager({ children }: { children: React.ReactNode }) {
                 console.error("Failed to apply theme settings:", error);
             }
         };
-        applyTheme();
-    }, []);
+
+        const resetToDefaultTheme = () => {
+            document.documentElement.style.removeProperty('--primary');
+            document.documentElement.style.removeProperty('--ring');
+            document.documentElement.style.removeProperty('--accent');
+            document.documentElement.style.removeProperty('--background');
+        }
+
+        // Only apply custom theme to the main customer-facing page (and its embedded version)
+        if (pathname === '/') {
+            applyCustomerTheme();
+        } else {
+            resetToDefaultTheme();
+        }
+
+    }, [pathname]);
 
     return <>{children}</>;
 }

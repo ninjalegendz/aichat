@@ -144,7 +144,7 @@ export function AdminDashboard() {
       (t) => t.status === "needs-attention" && !notifiedTickets.has(t.id)
     );
     if (ticketNeedsAttention) {
-      audioRef.current?.play();
+      audioRef.current?.play().catch(e => console.error("Error playing notification sound:", e));
       setNotifiedTickets((prev) => new Set(prev).add(ticketNeedsAttention.id));
       toast({
         title: "Agent Required",
@@ -201,7 +201,7 @@ export function AdminDashboard() {
           } as Message);
         });
         setMessages(newMessages);
-        scrollToBottom();
+        scrollToBottom(); // Unconditionally scroll to bottom when a new ticket is opened
       });
       return () => unsubscribe();
     } else {
@@ -270,18 +270,26 @@ export function AdminDashboard() {
 
   return (
     <SidebarProvider>
-       <audio ref={audioRef} src="https://www.soundjay.com/buttons/sounds/button-16.mp3" preload="auto" />
+       <audio ref={audioRef} src="https://cdn.pixabay.com/download/audio/2022/10/14/audio_a7e3079c29.mp3" preload="auto" />
       <Sidebar variant="sidebar" collapsible="icon">
         <SidebarHeader>
           <div className="flex items-center gap-2 p-2 group-data-[collapsible=icon]:justify-center">
-             {settings.brandLogoUrl ? (
-                <Image src={settings.brandLogoUrl} alt="Brand Logo" width={28} height={28} className="w-7 h-7 object-contain"/>
-             ) : (
+            {settings.brandLogoUrl ? (
+              <Image
+                src={settings.brandLogoUrl}
+                alt="Brand Logo"
+                width={120}
+                height={28}
+                className="h-7 w-auto object-contain group-data-[collapsible=icon]:w-7"
+              />
+            ) : (
+              <>
                 <BrainCircuit className="w-7 h-7 text-primary" />
-             )}
-            <span className="text-xl font-headline font-semibold group-data-[collapsible=icon]:hidden">
-              ShopAssist
-            </span>
+                <span className="text-xl font-headline font-semibold group-data-[collapsible=icon]:hidden">
+                  ShopAssist
+                </span>
+              </>
+            )}
           </div>
         </SidebarHeader>
         <SidebarContent>
