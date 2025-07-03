@@ -5,9 +5,6 @@ import { initialResponse } from "@/ai/flows/initial-response-flow";
 import { summarizeTicket } from "@/ai/flows/summarize-ticket-flow";
 import { getMessages, updateTicket, getSettings, updateSettings, addMessage } from "@/lib/firestore-service";
 import type { Settings } from "@/lib/types";
-import { storage } from "@/lib/firebase";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-
 
 export async function getAiResponse(query: string, chatHistory: string, ticketId: string) {
   try {
@@ -50,33 +47,4 @@ export async function getSettingsAction(): Promise<Settings> {
 
 export async function updateSettingsAction(data: Partial<Settings>): Promise<void> {
     await updateSettings(data);
-}
-
-export async function handleFileUploadAction(formData: FormData) {
-    const file = formData.get('file') as File;
-    const ticketId = formData.get('ticketId') as string;
-    const role = formData.get('role') as 'user' | 'agent';
-
-    if (!file || !ticketId || !role) {
-        throw new Error("File, ticketId, or role missing");
-    }
-
-    const storageRef = ref(storage, `attachments/${ticketId}/${Date.now()}-${file.name}`);
-    
-    await uploadBytes(storageRef, file);
-    const downloadURL = await getDownloadURL(storageRef);
-
-    const attachment = {
-        name: file.name,
-        url: downloadURL,
-        type: file.type
-    };
-
-    await addMessage(ticketId, {
-        role: role,
-        content: '',
-        attachment: attachment
-    });
-
-    return attachment;
 }

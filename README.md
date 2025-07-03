@@ -17,7 +17,7 @@ npm install
 
 ### 2. Configure Firebase
 
-This project uses Firebase for Authentication, Firestore, and Storage.
+This project uses Firebase for Authentication and Firestore.
 
 1.  **Create a Firebase Project:** If you don't have one already, create a new project at the [Firebase Console](https://console.firebase.google.com/).
 2.  **Create a Web App:** Inside your project, create a new Web App.
@@ -41,18 +41,6 @@ This project uses Firebase for Authentication, Firestore, and Storage.
 2.  Click "Create database".
 3.  Start in **Test mode** and click "Next". This will allow open access for development. For production, you should use "Production mode" and secure your data.
 4.  Choose a location and click "Enable".
-5.  Go to the **Rules** tab for your Firestore database.
-6.  **IMPORTANT:** Copy the contents of the `firestore.rules` file from this project and paste them into the rules editor.
-7.  Click "Publish".
-
-**Storage:**
-
-1.  Go to the **Storage** tab.
-2.  Click "Get started".
-3.  Follow the setup wizard, selecting **Test mode**.
-4.  After the storage bucket is created, go to the **Rules** tab.
-5.  **IMPORTANT:** Copy the contents of the `storage.rules` file from this project and paste them into the rules editor in the Firebase console.
-6.  Click "Publish".
 
 ### 4. Run the Development Server
 

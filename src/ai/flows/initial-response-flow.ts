@@ -14,7 +14,7 @@ import {z} from 'genkit';
 import { saveOrderNumber } from '../tools/save-order-tool';
 
 const InitialResponseInputSchema = z.object({
-  currentQuery: z.string().describe('The latest customer message, which may include text and references to uploaded files.'),
+  currentQuery: z.string().describe('The latest customer message.'),
   chatHistory: z.string().optional().describe('The full conversation history.'),
   knowledgeBase: z.string().optional().describe('Contextual knowledge base to inform the response.'),
   systemPrompt: z.string().optional().describe('The system prompt that defines the AIs behavior.'),

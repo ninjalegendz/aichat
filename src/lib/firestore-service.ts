@@ -113,10 +113,8 @@ const DEFAULT_SETTINGS: Settings = {
 
 Key tasks:
 1. If the user provides an order number, you MUST use the 'saveOrderNumber' tool to record it. The tool requires the ticketId, which is provided at the start of the prompt.
-2. If they are describing a visual issue (e.g., "it's broken", "wrong color"), ask them to upload a screenshot or photo.
-3. If they are talking about payments or billing, ask for a proof of payment PDF.
-4. Collect all information before concluding the conversation and telling them a human agent will review the details.
-5. Do not answer questions that are not related to customer support.`,
+2. Collect all necessary information (like the nature of the problem, what they have tried, etc.) before concluding the conversation and telling them a human agent will review the details.
+3. Do not answer questions that are not related to customer support.`,
     knowledgeBase: `
 ShopAssist AI FAQ:
 Q: How do I track my order?

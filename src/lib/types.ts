@@ -4,11 +4,6 @@ export type Message = {
   role: 'user' | 'assistant' | 'agent';
   content: string;
   createdAt: string;
-  attachment?: {
-    name: string;
-    url: string;
-    type: string;
-  };
 };
 
 export type Ticket = {

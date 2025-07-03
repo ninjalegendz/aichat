@@ -1,7 +1,7 @@
 
 "use client";
 
-import { handleFileUploadAction, summarizeAndSaveTicket, getSettingsAction } from "@/app/actions";
+import { summarizeAndSaveTicket, getSettingsAction } from "@/app/actions";
 import type { Message, Settings, Ticket } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
@@ -9,27 +9,20 @@ import {
   Bot,
   BrainCircuit,
   Contact,
-  File as FileIcon,
-  FileImage,
-  FileText,
-  FolderOpen,
   Loader2,
   LogOut,
   MessageSquare,
   NotebookPen,
   PanelRightClose,
   PanelRightOpen,
-  Paperclip,
   RefreshCw,
   Save,
   Send,
   Settings as SettingsIcon,
   ShoppingCart,
   UserCheck,
-  X,
 } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { format, formatDistanceToNow } from "date-fns";
@@ -85,7 +78,6 @@ export function AdminDashboard() {
   const [isSummarizePending, startSummarizeTransition] = useTransition();
   const [isDetailsPanelOpen, setIsDetailsPanelOpen] = useState(true);
   const [settings, setSettings] = useState<Partial<Settings>>({});
-  const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
   const [isSending, startSendingTransition] = useTransition();
 
   // State for the details panel
@@ -95,7 +87,6 @@ export function AdminDashboard() {
   const [isSaving, setIsSaving] = useState(false);
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const selectedTicketId = searchParams.get("ticketId");
 
   // Fetch settings
@@ -147,7 +138,6 @@ export function AdminDashboard() {
     if (selectedTicketId) {
       const ticketData = tickets.find((t) => t.id === selectedTicketId) || null;
       setSelectedTicket(ticketData);
-      setFilesToUpload([]);
       setAgentInput("");
 
       if (ticketData) {
@@ -182,29 +172,13 @@ export function AdminDashboard() {
   }, [selectedTicketId, tickets]);
 
   const handleAgentSendMessage = async () => {
-    if (!selectedTicket) return;
     const textToSend = agentInput.trim();
-    const filesToSend = [...filesToUpload];
-    if (!textToSend && filesToSend.length === 0) return;
+    if (!selectedTicket || !textToSend) return;
 
     setAgentInput('');
-    setFilesToUpload([]);
 
     startSendingTransition(async () => {
-      // Upload files first, each as a separate message
-      for (const file of filesToSend) {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('ticketId', selectedTicket.id);
-        formData.append('role', 'agent');
-        await handleFileUploadAction(formData);
-      }
-
-      // Then, send the text message if it exists
-      if (textToSend) {
-        await addMessage(selectedTicket.id, { role: 'agent', content: textToSend });
-      }
-
+      await addMessage(selectedTicket.id, { role: 'agent', content: textToSend });
       await updateTicket(selectedTicket.id, { status: "agent" });
     });
   };
@@ -231,7 +205,7 @@ export function AdminDashboard() {
         customer: { ...selectedTicket.customer, name: customerName },
         notes: customerNotes,
         summary: ticketSummary,
-        orderNumber: selectedTicket.orderNumber // Ensure order number is preserved
+        orderNumber: selectedTicket.orderNumber
       };
       await updateTicket(selectedTicket.id, updatedData);
       toast({
@@ -250,27 +224,10 @@ export function AdminDashboard() {
     }
   };
 
-   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-     if (files.length === 0) return;
-    setFilesToUpload(prev => [...prev, ...files]);
-    toast({ title: `${files.length} file(s) ready for upload.` });
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
-  
-  const removeFileToUpload = (fileToRemove: File) => {
-    setFilesToUpload(prev => prev.filter(file => file !== fileToRemove));
-  }
-
   const handleLogout = async () => {
     await signOut(auth);
     router.push("/admin/login");
   };
-
-  const attachments = messages.filter(m => m.attachment);
 
   return (
     <SidebarProvider>
@@ -413,20 +370,7 @@ export function AdminDashboard() {
                                 : "bg-card border rounded-bl-none"
                             )}
                           >
-                           {message.attachment ? (
-                                message.attachment.type.startsWith('image/') ? (
-                                    <Link href={message.attachment.url} target="_blank" rel="noopener noreferrer">
-                                        <Image src={message.attachment.url} alt={message.attachment.name} width={200} height={200} className="rounded-md object-cover"/>
-                                    </Link>
-                                ) : (
-                                    <Link href={message.attachment.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm font-medium underline">
-                                        <Paperclip className="w-4 h-4"/>
-                                        {message.attachment.name}
-                                    </Link>
-                                )
-                            ) : (
-                                <p className="text-sm" style={{ whiteSpace: 'pre-wrap' }}>{message.content}</p>
-                            )}
+                            <p className="text-sm" style={{ whiteSpace: 'pre-wrap' }}>{message.content}</p>
                             <p
                               className={cn(
                                 "text-xs mt-1",
@@ -454,22 +398,6 @@ export function AdminDashboard() {
                   </ScrollArea>
                 </CardContent>
                 <CardFooter className="p-4 border-t flex flex-col items-start gap-2">
-                 {filesToUpload.length > 0 && (
-                    <div className="w-full p-2 border rounded-md">
-                        <p className="text-xs font-medium mb-2 text-muted-foreground">Files to upload:</p>
-                        <div className="flex flex-wrap gap-2">
-                        {filesToUpload.map((file, index) => (
-                            <div key={index} className="flex items-center gap-2 p-1.5 rounded-md bg-muted text-sm text-muted-foreground">
-                            {file.type.startsWith('image/') ? <FileImage className="w-4 h-4 text-primary" /> : <FileIcon className="w-4 h-4 text-muted-foreground" />}
-                            <span className="max-w-[150px] truncate">{file.name}</span>
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeFileToUpload(file)}>
-                                <X className="w-4 h-4" />
-                            </Button>
-                            </div>
-                        ))}
-                        </div>
-                    </div>
-                  )}
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
@@ -477,10 +405,6 @@ export function AdminDashboard() {
                     }}
                     className="flex items-center gap-2 w-full"
                   >
-                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*,.pdf" multiple/>
-                    <Button type="button" variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={selectedTicket.status === 'closed' || isSending}>
-                        <Paperclip className="w-5 h-5"/>
-                    </Button>
                     <Textarea
                       value={agentInput}
                       onChange={(e) => setAgentInput(e.target.value)}
@@ -499,7 +423,7 @@ export function AdminDashboard() {
                       type="submit"
                       size="icon"
                       disabled={
-                        (!agentInput.trim() && filesToUpload.length === 0) || selectedTicket.status === "closed" || isSending
+                        !agentInput.trim() || selectedTicket.status === "closed" || isSending
                       }
                     >
                       {isSending ? <Loader2 className="w-5 h-5 animate-spin"/> : <Send className="w-5 h-5" />}
@@ -583,30 +507,9 @@ export function AdminDashboard() {
                     rows={5}
                   />
                 </div>
-                 <div className="space-y-2">
-                  <Label htmlFor="ticketFiles" className="flex items-center gap-2">
-                    <FolderOpen className="w-4 h-4"/> Files
-                  </Label>
-                   <ScrollArea className="h-32 w-full rounded-md border p-2">
-                    {attachments.length > 0 ? (
-                        <div className="space-y-2">
-                        {attachments.map(msg => msg.attachment && (
-                            <Link key={msg.id} href={msg.attachment.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-1.5 rounded hover:bg-muted text-sm">
-                                {msg.attachment.type.startsWith('image/') ? <FileImage className="w-4 h-4 text-primary" /> : <FileText className="w-4 h-4 text-muted-foreground" />}
-                                <span className="truncate">{msg.attachment.name}</span>
-                            </Link>
-                        ))}
-                        </div>
-                    ) : (
-                        <div className="flex items-center justify-center h-full text-xs text-muted-foreground">
-                            No files attached.
-                        </div>
-                    )}
-                  </ScrollArea>
-                </div>
                 <div className="space-y-2">
                   <Label htmlFor="ticketSummary" className="flex items-center justify-between">
-                    <span className="flex items-center gap-2"><FileText className="w-4 h-4"/> Summary</span>
+                    <span className="flex items-center gap-2"><NotebookPen className="w-4 h-4"/> Summary</span>
                      <Button
                         variant="outline"
                         size="sm"
