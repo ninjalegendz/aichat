@@ -12,6 +12,7 @@ import {
   Bot,
   BrainCircuit,
   Contact,
+  Download,
   Loader2,
   LogOut,
   MessageSquare,
@@ -76,6 +77,12 @@ import Image from "next/image";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTitle } from "./ui/sheet";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 
 export function AdminDashboard() {
   const router = useRouter();
@@ -352,6 +359,49 @@ export function AdminDashboard() {
     setIsQuickReplyOpen(false);
   };
 
+  const handleDownloadTranscript = (format: 'txt' | 'json') => {
+    if (!selectedTicket || messages.length === 0) return;
+
+    let content = '';
+    let mimeType = '';
+    let fileExtension = '';
+
+    const fileName = `transcript-${selectedTicket.id.substring(0, 8)}-${new Date().toISOString().split('T')[0]}`;
+
+    if (format === 'txt') {
+        content = messages.map(msg => {
+            const timestamp = format(new Date(msg.createdAt), 'yyyy-MM-dd HH:mm:ss');
+            const role = msg.role.charAt(0).toUpperCase() + msg.role.slice(1);
+            let replyText = '';
+            if (msg.replyTo) {
+                replyText = ` (replying to ${msg.replyTo.role}: "${msg.replyTo.content.substring(0, 30)}...")`;
+            }
+            return `[${timestamp}] ${role}${replyText}:\n${msg.content}\n`;
+        }).join('\n----------------------------------------\n');
+        mimeType = 'text/plain';
+        fileExtension = 'txt';
+    } else if (format === 'json') {
+        content = JSON.stringify(messages, null, 2);
+        mimeType = 'application/json';
+        fileExtension = 'json';
+    }
+
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${fileName}.${fileExtension}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+        title: "Transcript Downloaded",
+        description: `The chat transcript has been saved as a .${fileExtension} file.`,
+    });
+  };
+
   const filteredQuickReplies = settings.quickReplies?.filter(reply => 
     reply.text.toLowerCase().includes(quickReplyQuery.toLowerCase())
   ) || [];
@@ -396,6 +446,22 @@ export function AdminDashboard() {
             <CardTitle className="flex items-center gap-2">
                 <Contact className="w-6 h-6" /> Customer Details
             </CardTitle>
+             <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                        <Download className="mr-2 h-4 w-4" />
+                        Download
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleDownloadTranscript('txt')}>
+                        As TXT
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleDownloadTranscript('json')}>
+                        As JSON
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
         </div>
          <div className="flex items-center gap-2 pt-2 flex-wrap">
             {selectedTicket?.status !== "agent" && (
@@ -675,7 +741,12 @@ export function AdminDashboard() {
                                 </AvatarFallback>
                             </Avatar>
                            
-                            <div className="flex items-center gap-2">
+                            <div
+                              className={cn(
+                                "flex items-center gap-2",
+                                message.role === "user" && "flex-row-reverse"
+                              )}
+                            >
                                 <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setReplyingTo(message)}>
                                     <MessageSquareReply className="w-4 h-4"/>
                                 </Button>

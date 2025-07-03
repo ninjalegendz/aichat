@@ -249,7 +249,12 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
                         : settings.agentName?.charAt(0) || "S"}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex items-center gap-2">
+                  <div
+                    className={cn(
+                      "flex items-center gap-2",
+                      message.role === "user" && "flex-row-reverse"
+                    )}
+                  >
                     <Button
                       variant="ghost"
                       size="icon"
