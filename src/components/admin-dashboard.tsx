@@ -435,15 +435,17 @@ export function AdminDashboard() {
             onChange={(e) => setCustomerName(e.target.value)}
           />
         </div>
-        {selectedTicket?.orderNumber && (
-          <div className="space-y-2">
-            <Label htmlFor="orderNumber">Order Number</Label>
-             <div className="flex items-center gap-2 text-sm border p-2 rounded-md bg-muted">
-                <ShoppingCart className="w-4 h-4 text-muted-foreground"/>
-                <span>#{selectedTicket.orderNumber}</span>
-            </div>
+        <div className="space-y-2">
+          <Label htmlFor="orderNumber">Order Number</Label>
+          <div className="flex items-center gap-2 text-sm border p-2 rounded-md bg-muted">
+            <ShoppingCart className="w-4 h-4 text-muted-foreground" />
+            <span>
+              {selectedTicket?.orderNumber
+                ? `#${selectedTicket.orderNumber}`
+                : "Not provided"}
+            </span>
           </div>
-        )}
+        </div>
         <div className="space-y-2">
           <Label htmlFor="customerNotes" className="flex items-center gap-2">
             <NotebookPen className="w-4 h-4"/> Notes

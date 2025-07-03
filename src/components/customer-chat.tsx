@@ -226,67 +226,74 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
                   key={message.id}
                   className={cn(
                     "flex items-start gap-3 group",
-                    message.role === "user" ? "justify-end" : "justify-start"
+                    message.role === "user"
+                      ? "justify-end flex-row-reverse"
+                      : "justify-start"
                   )}
                 >
-                   {message.role !== "user" && (
-                     <div className="flex items-center gap-3">
-                        <Avatar className="w-8 h-8">
-                            <AvatarImage
-                                src={
-                                message.role === "assistant"
-                                    ? undefined
-                                    : settings.agentAvatar
-                                }
-                            />
-                            <AvatarFallback>
-                                {message.role === "assistant" ? "A" : settings.agentName?.charAt(0) || 'S'}
-                            </AvatarFallback>
-                        </Avatar>
-                     </div>
-                  )}
-
-                  <div
-                    className={cn(
-                      "max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl animate-in fade-in zoom-in-95",
-                      message.role === 'user'
-                      ? 'bg-user-bubble text-user-foreground rounded-br-none'
-                      : message.role === 'agent'
-                      ? 'bg-agent-bubble text-agent-foreground rounded-bl-none'
-                      : 'bg-assistant-bubble text-assistant-foreground border rounded-bl-none'
-                    )}
-                  >
-                     {message.replyTo && <RepliedMessage message={message.replyTo} settings={settings} />}
-                    <div className="text-sm prose" style={{ whiteSpace: 'pre-wrap' }}>{linkify(message.content)}</div>
-                    <p
+                  <Avatar className="w-8 h-8">
+                    <AvatarImage
+                      src={
+                        message.role === "user"
+                          ? ticket?.customer.avatar
+                          : message.role === "assistant"
+                          ? undefined
+                          : settings.agentAvatar
+                      }
+                    />
+                    <AvatarFallback>
+                      {message.role === "user"
+                        ? ticket?.customer.name.charAt(0)
+                        : message.role === "assistant"
+                        ? "A"
+                        : settings.agentName?.charAt(0) || "S"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 self-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => setReplyingTo(message)}
+                    >
+                      <MessageSquareReply className="w-4 h-4" />
+                    </Button>
+                    <div
                       className={cn(
-                        "text-xs mt-1",
-                         message.role === 'user'
-                         ? 'text-user-foreground/70'
-                         : message.role === 'agent'
-                         ? 'text-agent-foreground/70'
-                         : 'text-assistant-foreground/70'
+                        "max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl animate-in fade-in zoom-in-95",
+                        message.role === "user"
+                          ? "bg-user-bubble text-user-foreground rounded-br-none"
+                          : message.role === "agent"
+                          ? "bg-agent-bubble text-agent-foreground rounded-bl-none"
+                          : "bg-assistant-bubble text-assistant-foreground border rounded-bl-none"
                       )}
                     >
-                      {format(new Date(message.createdAt), "p")}
-                    </p>
+                      {message.replyTo && (
+                        <RepliedMessage
+                          message={message.replyTo}
+                          settings={settings}
+                        />
+                      )}
+                      <div
+                        className="text-sm prose"
+                        style={{ whiteSpace: "pre-wrap" }}
+                      >
+                        {linkify(message.content)}
+                      </div>
+                      <p
+                        className={cn(
+                          "text-xs mt-1",
+                          message.role === "user"
+                            ? "text-user-foreground/70"
+                            : message.role === "agent"
+                            ? "text-agent-foreground/70"
+                            : "text-assistant-foreground/70"
+                        )}
+                      >
+                        {format(new Date(message.createdAt), "p")}
+                      </p>
+                    </div>
                   </div>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 self-center opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => setReplyingTo(message)}
-                    >
-                        <MessageSquareReply className="w-4 h-4" />
-                    </Button>
-                  {message.role === "user" && ticket?.customer && (
-                    <Avatar className="w-8 h-8">
-                      <AvatarImage src={ticket.customer.avatar} />
-                      <AvatarFallback>
-                        {ticket.customer.name.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                  )}
                 </div>
               ))}
               {isAiTyping && (
