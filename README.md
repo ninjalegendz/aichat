@@ -52,3 +52,36 @@ npm run dev
 
 The app will be available at [http://localhost:9002](http://localhost:9002).
 The admin panel is at [http://localhost:9002/admin](http://localhost:9002/admin).
+
+### 5. Deploy to Firebase
+
+This application is configured for deployment to Firebase Hosting.
+
+1.  **Install Firebase CLI:** If you haven't already, install the Firebase command-line tools globally:
+    ```bash
+    npm install -g firebase-tools
+    ```
+
+2.  **Login to Firebase:**
+    ```bash
+    firebase login
+    ```
+
+3.  **Set Firebase Project:** Open the `.firebaserc` file and replace `"shopassist-ai-app"` with your actual Firebase Project ID.
+
+4.  **Configure Google Cloud:** In your Google Cloud project (which is linked to your Firebase project):
+    *   **Enable APIs:** Ensure the following APIs are enabled in the Google Cloud Console:
+        *   Cloud Build API (usually enabled by default)
+        *   Cloud Run Admin API
+        *   Vertex AI API
+    *   **Grant Permissions:** Your app's backend will run on Cloud Functions. You need to give its service account permission to use Genkit's AI features.
+        1.  Go to the IAM page in the Google Cloud Console.
+        2.  Find the service account with the name `PROJECT_ID@appspot.gserviceaccount.com` (the default App Engine service account).
+        3.  Grant this service account the **Vertex AI User** role. This allows it to make calls to the Gemini model.
+
+5.  **Deploy:** Run the deployment command from your project's root directory:
+    ```bash
+    firebase deploy --only hosting
+    ```
+
+Firebase will automatically build your Next.js application, package it into a Cloud Function, and deploy it to Firebase Hosting.
