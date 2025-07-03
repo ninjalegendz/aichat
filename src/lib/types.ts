@@ -29,4 +29,11 @@ export type Settings = {
     accentColor?: string;
     backgroundColor?: string;
     brandLogoUrl?: string;
+    // Bubble Colors
+    userBubbleColor?: string;
+    userBubbleTextColor?: string;
+    agentBubbleColor?: string;
+    agentBubbleTextColor?: string;
+    assistantBubbleColor?: string;
+    assistantBubbleTextColor?: string;
 };

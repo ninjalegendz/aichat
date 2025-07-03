@@ -11,9 +11,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { hexToHslString } from "@/lib/utils";
 import type { Settings } from "@/lib/types";
-import { ArrowLeft, BrainCog, Loader2, Palette, Save } from "lucide-react";
+import { ArrowLeft, BrainCog, Bot, Loader2, Palette, Save, User, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
 
 export function AdminSettings() {
   const [settings, setSettings] = useState<Partial<Settings>>({});
@@ -94,117 +95,220 @@ export function AdminSettings() {
             Configure the behavior, knowledge, and appearance of your AI assistant and app.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-8">
-          {/* AI Profile Settings */}
-          <div>
-            <h3 className="text-lg font-medium mb-4">AI Profile</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                    <Label htmlFor="agentName">Agent Name</Label>
-                    <Input
-                        id="agentName"
-                        name="agentName"
-                        value={settings.agentName || ""}
-                        onChange={handleInputChange}
-                        placeholder="e.g., Support Bot"
-                    />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="agentAvatar">Agent Avatar URL</Label>
-                    <Input
-                        id="agentAvatar"
-                        name="agentAvatar"
-                        value={settings.agentAvatar || ""}
-                        onChange={handleInputChange}
-                        placeholder="https://example.com/avatar.png"
-                    />
-                </div>
-            </div>
-          </div>
+        <CardContent>
+            <Accordion type="multiple" defaultValue={['item-1']} className="w-full">
+                {/* AI Profile Settings */}
+                <AccordionItem value="item-1">
+                    <AccordionTrigger className="text-lg font-medium">
+                        <div className="flex items-center gap-3"><User className="w-5 h-5"/> AI Profile</div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-4 space-y-6">
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                                <Label htmlFor="agentName">Agent Name</Label>
+                                <Input
+                                    id="agentName"
+                                    name="agentName"
+                                    value={settings.agentName || ""}
+                                    onChange={handleInputChange}
+                                    placeholder="e.g., Support Bot"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="agentAvatar">Agent Avatar URL</Label>
+                                <Input
+                                    id="agentAvatar"
+                                    name="agentAvatar"
+                                    value={settings.agentAvatar || ""}
+                                    onChange={handleInputChange}
+                                    placeholder="https://example.com/avatar.png"
+                                />
+                            </div>
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
 
-          <Separator />
-          
-          {/* AI Behavior Settings */}
-          <div>
-            <h3 className="text-lg font-medium mb-4">AI Behavior</h3>
-            <div className="space-y-2">
-                <Label htmlFor="systemPrompt">System Prompt</Label>
-                <Textarea
-                id="systemPrompt"
-                name="systemPrompt"
-                value={settings.systemPrompt || ""}
-                onChange={handleInputChange}
-                rows={8}
-                placeholder="Define the AI's personality and goals..."
-                />
-                <p className="text-xs text-muted-foreground">This is the core instruction for the AI. It defines its role, personality, and primary objectives.</p>
-            </div>
-            <div className="space-y-2 mt-6">
-                <Label htmlFor="knowledgeBase">Knowledge Base (FAQ)</Label>
-                <Textarea
-                id="knowledgeBase"
-                name="knowledgeBase"
-                value={settings.knowledgeBase || ""}
-                onChange={handleInputChange}
-                rows={12}
-                placeholder="Add FAQs or other information..."
-                />
-                <p className="text-xs text-muted-foreground">Provide context that the AI can use to answer questions. Use a simple Q&A format for best results.</p>
-            </div>
-          </div>
+                {/* AI Behavior Settings */}
+                <AccordionItem value="item-2">
+                    <AccordionTrigger className="text-lg font-medium">
+                        <div className="flex items-center gap-3"><Bot className="w-5 h-5"/> AI Behavior</div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-4 space-y-6">
+                         <div className="space-y-2">
+                            <Label htmlFor="systemPrompt">System Prompt</Label>
+                            <Textarea
+                            id="systemPrompt"
+                            name="systemPrompt"
+                            value={settings.systemPrompt || ""}
+                            onChange={handleInputChange}
+                            rows={8}
+                            placeholder="Define the AI's personality and goals..."
+                            />
+                            <p className="text-xs text-muted-foreground">This is the core instruction for the AI. It defines its role, personality, and primary objectives.</p>
+                        </div>
+                        <div className="space-y-2 mt-6">
+                            <Label htmlFor="knowledgeBase">Knowledge Base (FAQ)</Label>
+                            <Textarea
+                            id="knowledgeBase"
+                            name="knowledgeBase"
+                            value={settings.knowledgeBase || ""}
+                            onChange={handleInputChange}
+                            rows={12}
+                            placeholder="Add FAQs or other information..."
+                            />
+                            <p className="text-xs text-muted-foreground">Provide context that the AI can use to answer questions. Use a simple Q&A format for best results.</p>
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
 
-           <Separator />
+                 {/* Theme & Branding Settings */}
+                <AccordionItem value="item-3">
+                    <AccordionTrigger className="text-lg font-medium">
+                        <div className="flex items-center gap-3"><Palette className="w-5 h-5"/> Theme & Branding (Customer-Facing)</div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-4 space-y-6">
+                        <div className="space-y-2">
+                            <Label htmlFor="brandLogoUrl">Brand Logo URL</Label>
+                            <Input
+                                id="brandLogoUrl"
+                                name="brandLogoUrl"
+                                value={settings.brandLogoUrl || ""}
+                                onChange={handleInputChange}
+                                placeholder="https://example.com/logo.png"
+                            />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                            <div className="space-y-2">
+                                <Label htmlFor="primaryColor">Primary Color</Label>
+                                <Input
+                                    id="primaryColor"
+                                    name="primaryColor"
+                                    type="color"
+                                    value={settings.primaryColor || "#64B5F6"}
+                                    onChange={handleInputChange}
+                                    className="p-1 h-10"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="accentColor">Accent Color</Label>
+                                <Input
+                                    id="accentColor"
+                                    name="accentColor"
+                                    type="color"
+                                    value={settings.accentColor || "#26A69A"}
+                                    onChange={handleInputChange}
+                                    className="p-1 h-10"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="backgroundColor">Background Color</Label>
+                                <Input
+                                    id="backgroundColor"
+                                    name="backgroundColor"
+                                    type="color"
+                                    value={settings.backgroundColor || "#F0F4F7"}
+                                    onChange={handleInputChange}
+                                    className="p-1 h-10"
+                                />
+                            </div>
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
 
-           {/* Theme & Branding Settings */}
-           <div>
-             <h3 className="text-lg font-medium mb-4 flex items-center gap-2"><Palette/> Theme & Branding</h3>
-             <div className="space-y-2">
-                <Label htmlFor="brandLogoUrl">Brand Logo URL</Label>
-                <Input
-                    id="brandLogoUrl"
-                    name="brandLogoUrl"
-                    value={settings.brandLogoUrl || ""}
-                    onChange={handleInputChange}
-                    placeholder="https://example.com/logo.png"
-                />
-            </div>
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-                <div className="space-y-2">
-                    <Label htmlFor="primaryColor">Primary Color</Label>
-                    <Input
-                        id="primaryColor"
-                        name="primaryColor"
-                        type="color"
-                        value={settings.primaryColor || "#64B5F6"}
-                        onChange={handleInputChange}
-                        className="p-1 h-10"
-                    />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="accentColor">Accent Color</Label>
-                    <Input
-                        id="accentColor"
-                        name="accentColor"
-                        type="color"
-                        value={settings.accentColor || "#26A69A"}
-                        onChange={handleInputChange}
-                        className="p-1 h-10"
-                    />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="backgroundColor">Background Color</Label>
-                    <Input
-                        id="backgroundColor"
-                        name="backgroundColor"
-                        type="color"
-                        value={settings.backgroundColor || "#F0F4F7"}
-                        onChange={handleInputChange}
-                        className="p-1 h-10"
-                    />
-                </div>
-             </div>
-           </div>
+                {/* Chat Bubble Colors */}
+                 <AccordionItem value="item-4">
+                    <AccordionTrigger className="text-lg font-medium">
+                         <div className="flex items-center gap-3"><MessageCircle className="w-5 h-5"/> Chat Bubble Colors (Customer-Facing)</div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-4 space-y-4">
+                        {/* User Bubble */}
+                        <div className="p-4 border rounded-lg">
+                             <h4 className="text-md font-semibold mb-4">User Message Bubbles</h4>
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <Label htmlFor="userBubbleColor">Bubble Color</Label>
+                                    <Input
+                                        id="userBubbleColor"
+                                        name="userBubbleColor"
+                                        type="color"
+                                        value={settings.userBubbleColor || "#64B5F6"}
+                                        onChange={handleInputChange}
+                                        className="p-1 h-10"
+                                    />
+                                </div>
+                                 <div className="space-y-2">
+                                    <Label htmlFor="userBubbleTextColor">Text Color</Label>
+                                    <Input
+                                        id="userBubbleTextColor"
+                                        name="userBubbleTextColor"
+                                        type="color"
+                                        value={settings.userBubbleTextColor || "#FFFFFF"}
+                                        onChange={handleInputChange}
+                                        className="p-1 h-10"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        {/* Agent Bubble */}
+                        <div className="p-4 border rounded-lg">
+                             <h4 className="text-md font-semibold mb-4">Agent Message Bubbles</h4>
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <Label htmlFor="agentBubbleColor">Bubble Color</Label>
+                                    <Input
+                                        id="agentBubbleColor"
+                                        name="agentBubbleColor"
+                                        type="color"
+                                        value={settings.agentBubbleColor || "#42A5F5"}
+                                        onChange={handleInputChange}
+                                        className="p-1 h-10"
+                                    />
+                                </div>
+                                 <div className="space-y-2">
+                                    <Label htmlFor="agentBubbleTextColor">Text Color</Label>
+                                    <Input
+                                        id="agentBubbleTextColor"
+                                        name="agentBubbleTextColor"
+                                        type="color"
+                                        value={settings.agentBubbleTextColor || "#FFFFFF"}
+                                        onChange={handleInputChange}
+                                        className="p-1 h-10"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        {/* Assistant Bubble */}
+                        <div className="p-4 border rounded-lg">
+                             <h4 className="text-md font-semibold mb-4">AI Assistant Message Bubbles</h4>
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <Label htmlFor="assistantBubbleColor">Bubble Color</Label>
+                                    <Input
+                                        id="assistantBubbleColor"
+                                        name="assistantBubbleColor"
+                                        type="color"
+                                        value={settings.assistantBubbleColor || "#FFFFFF"}
+                                        onChange={handleInputChange}
+                                        className="p-1 h-10"
+                                    />
+                                </div>
+                                 <div className="space-y-2">
+                                    <Label htmlFor="assistantBubbleTextColor">Text Color</Label>
+                                    <Input
+                                        id="assistantBubbleTextColor"
+                                        name="assistantBubbleTextColor"
+                                        type="color"
+                                        value={settings.assistantBubbleTextColor || "#212121"}
+                                        onChange={handleInputChange}
+                                        className="p-1 h-10"
+                                    />
+                                </div>
+                            </div>
+                        </div>
 
+                    </AccordionContent>
+                </AccordionItem>
+            </Accordion>
         </CardContent>
          <CardFooter className="flex flex-col-reverse sm:flex-row sm:justify-between items-center gap-4 pt-6 border-t">
              <Link href="/admin" className="w-full sm:w-auto">

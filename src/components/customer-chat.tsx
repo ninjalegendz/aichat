@@ -206,9 +206,11 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
                   <div
                     className={cn(
                       "max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl animate-in fade-in zoom-in-95",
-                      message.role === "user"
-                        ? "bg-primary text-primary-foreground rounded-br-none"
-                        : "bg-card border rounded-bl-none"
+                      message.role === 'user'
+                      ? 'bg-user-bubble text-user-foreground rounded-br-none'
+                      : message.role === 'agent'
+                      ? 'bg-agent-bubble text-agent-foreground rounded-bl-none'
+                      : 'bg-assistant-bubble text-assistant-foreground border rounded-bl-none'
                     )}
                   >
                     <div className="text-sm prose" style={{ whiteSpace: 'pre-wrap' }}>{linkify(message.content)}</div>
@@ -216,9 +218,11 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
                     <p
                       className={cn(
                         "text-xs mt-1",
-                        message.role === "user"
-                          ? "text-primary-foreground/70"
-                          : "text-muted-foreground/70"
+                         message.role === 'user'
+                         ? 'text-user-foreground/70'
+                         : message.role === 'agent'
+                         ? 'text-agent-foreground/70'
+                         : 'text-assistant-foreground/70'
                       )}
                     >
                       {format(new Date(message.createdAt), "p")}

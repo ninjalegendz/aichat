@@ -73,6 +73,19 @@ export default {
           border: 'hsl(var(--sidebar-border))',
           ring: 'hsl(var(--sidebar-ring))',
         },
+        // Custom Bubble Colors
+        'user-bubble': {
+            DEFAULT: 'hsl(var(--user-bubble-background))',
+            foreground: 'hsl(var(--user-bubble-foreground))',
+        },
+        'agent-bubble': {
+            DEFAULT: 'hsl(var(--agent-bubble-background))',
+            foreground: 'hsl(var(--agent-bubble-foreground))',
+        },
+        'assistant-bubble': {
+            DEFAULT: 'hsl(var(--assistant-bubble-background))',
+            foreground: 'hsl(var(--assistant-bubble-foreground))',
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',

@@ -375,8 +375,8 @@ export function AdminDashboard() {
         </div>
         {selectedTicket?.orderNumber && (
           <div className="space-y-2">
-            <Label>Order Number</Label>
-            <div className="flex items-center gap-2 text-sm border p-2 rounded-md bg-muted">
+            <Label htmlFor="orderNumber">Order Number</Label>
+             <div className="flex items-center gap-2 text-sm border p-2 rounded-md bg-muted">
                 <ShoppingCart className="w-4 h-4 text-muted-foreground"/>
                 <span>#{selectedTicket.orderNumber}</span>
             </div>
@@ -458,7 +458,7 @@ export function AdminDashboard() {
         <SidebarContent>
           <SidebarMenu>
             {tickets.map((ticket) => (
-              <SidebarMenuItem key={ticket.id}>
+              <SidebarMenuItem key={ticket.id} className="border-b border-sidebar-border last:border-b-0">
                 <Link href={`/admin?ticketId=${ticket.id}`}>
                   <SidebarMenuButton
                     isActive={selectedTicketId === ticket.id}
@@ -515,20 +515,22 @@ export function AdminDashboard() {
         </SidebarContent>
         <SidebarFooter>
           <SidebarSeparator/>
-          <SidebarMenuItem>
-            <Link href="/admin/settings">
-                <SidebarMenuButton tooltip="Settings">
-                    <SettingsIcon/>
-                    <span>Settings</span>
-                </SidebarMenuButton>
-            </Link>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-              <SidebarMenuButton onClick={handleLogout} tooltip="Log Out">
-                  <LogOut/>
-                  <span>Log Out</span>
-              </SidebarMenuButton>
-          </SidebarMenuItem>
+           <SidebarMenu>
+              <SidebarMenuItem>
+                <Link href="/admin/settings">
+                    <SidebarMenuButton tooltip="Settings">
+                        <SettingsIcon/>
+                        <span>Settings</span>
+                    </SidebarMenuButton>
+                </Link>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                  <SidebarMenuButton onClick={handleLogout} tooltip="Log Out">
+                      <LogOut/>
+                      <span>Log Out</span>
+                  </SidebarMenuButton>
+              </SidebarMenuItem>
+           </SidebarMenu>
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>

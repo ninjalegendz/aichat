@@ -134,6 +134,13 @@ A: You can contact us via this chat, or email us at support@example.com. Our sup
     accentColor: '#26A69A',
     backgroundColor: '#F0F4F7',
     brandLogoUrl: '',
+    // Bubble Colors
+    userBubbleColor: '#64B5F6',
+    userBubbleTextColor: '#FFFFFF',
+    agentBubbleColor: '#42A5F5',
+    agentBubbleTextColor: '#FFFFFF',
+    assistantBubbleColor: '#FFFFFF',
+    assistantBubbleTextColor: '#212121',
 };
 
 export async function getSettings(): Promise<Settings> {
