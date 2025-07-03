@@ -25,6 +25,7 @@ export type InitialResponseInput = z.infer<typeof InitialResponseInputSchema>;
 
 const InitialResponseOutputSchema = z.object({
   response: z.string().describe('The AI-generated initial response.'),
+  needsAttention: z.boolean().describe('Set to true if a human agent is required to intervene or if you cannot answer the user\'s query.'),
 });
 
 export type InitialResponseOutput = z.infer<typeof InitialResponseOutputSchema>;

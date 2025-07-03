@@ -9,7 +9,7 @@ export type Message = {
 export type Ticket = {
   id:string;
   messages: Message[];
-  status: 'ai' | 'agent' | 'closed';
+  status: 'ai' | 'agent' | 'closed' | 'needs-attention';
   lastUpdate: string;
   summary?: string;
   customer: {
@@ -25,4 +25,8 @@ export type Settings = {
     agentAvatar: string;
     systemPrompt: string;
     knowledgeBase: string;
+    primaryColor?: string;
+    accentColor?: string;
+    backgroundColor?: string;
+    brandLogoUrl?: string;
 };

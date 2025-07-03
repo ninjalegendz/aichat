@@ -43,11 +43,11 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTo({
-        top: scrollAreaRef.current.scrollHeight,
-        behavior: "smooth",
-      });
+    const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
+    if (viewport) {
+      setTimeout(() => {
+        viewport.scrollTop = viewport.scrollHeight;
+      }, 0);
     }
   };
 
@@ -72,6 +72,12 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
     );
     const unsubscribeMessages = onSnapshot(messagesQuery, (querySnapshot) => {
       const newMessages: Message[] = [];
+      let shouldScroll = false;
+      const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
+      if (viewport) {
+        shouldScroll = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 100;
+      }
+      
       querySnapshot.forEach((doc) => {
         const data = doc.data();
         newMessages.push({
@@ -83,17 +89,20 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
         } as Message);
       });
       setMessages(newMessages);
+
+      if (shouldScroll) {
+        scrollToBottom();
+      }
     });
+    
+    // Initial scroll
+    setTimeout(scrollToBottom, 100);
 
     return () => {
       unsubscribeTicket();
       unsubscribeMessages();
     };
   }, [ticketId]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
 
   const handleSendMessage = async () => {
     const textToSend = input.trim();
@@ -134,8 +143,8 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
           </CardTitle>
         </CardHeader>
         <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
-          <ScrollArea className="flex-1 p-6" ref={scrollAreaRef}>
-            <div className="space-y-6">
+          <ScrollArea className="flex-1" ref={scrollAreaRef}>
+            <div className="space-y-6 p-6">
               {messages.map((message) => (
                 <div
                   key={message.id}
@@ -154,7 +163,7 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
                         }
                       />
                       <AvatarFallback>
-                        {message.role === "assistant" ? "A" : "S"}
+                        {message.role === "assistant" ? "A" : settings.agentName?.charAt(0) || 'S'}
                       </AvatarFallback>
                     </Avatar>
                   )}
@@ -166,7 +175,7 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
                         : "bg-card border rounded-bl-none"
                     )}
                   >
-                    <p className="text-sm" style={{ whiteSpace: 'pre-wrap' }}>{linkify(message.content)}</p>
+                    <div className="text-sm prose" style={{ whiteSpace: 'pre-wrap' }}>{linkify(message.content)}</div>
 
                     <p
                       className={cn(

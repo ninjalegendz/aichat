@@ -66,6 +66,7 @@ import { addMessage, updateTicket } from "@/lib/firestore-service";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { useToast } from "@/hooks/use-toast";
+import Image from "next/image";
 
 export function AdminDashboard() {
   const router = useRouter();
@@ -86,9 +87,22 @@ export function AdminDashboard() {
   const [customerNotes, setCustomerNotes] = useState("");
   const [ticketSummary, setTicketSummary] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Notification state
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [notifiedTickets, setNotifiedTickets] = useState(new Set<string>());
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const selectedTicketId = searchParams.get("ticketId");
+
+  const scrollToBottom = () => {
+    const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
+    if (viewport) {
+      setTimeout(() => {
+        viewport.scrollTop = viewport.scrollHeight;
+      }, 0);
+    }
+  };
 
   // Fetch settings
   useEffect(() => {
@@ -124,13 +138,30 @@ export function AdminDashboard() {
     return () => unsubscribe();
   }, []);
 
-  // Scroll to bottom of chat when new messages arrive
+  // Handle notifications for tickets needing attention
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTo({
-        top: scrollAreaRef.current.scrollHeight,
-        behavior: "smooth",
-      });
+    const ticketNeedsAttention = tickets.find(
+      (t) => t.status === "needs-attention" && !notifiedTickets.has(t.id)
+    );
+    if (ticketNeedsAttention) {
+      audioRef.current?.play();
+      setNotifiedTickets((prev) => new Set(prev).add(ticketNeedsAttention.id));
+      toast({
+        title: "Agent Required",
+        description: `Ticket from ${ticketNeedsAttention.customer.name} needs attention.`,
+      })
+    }
+  }, [tickets, notifiedTickets, toast]);
+
+
+  // Scroll to bottom of chat when new messages arrive if already at bottom
+  useEffect(() => {
+    const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
+    if (viewport) {
+      const isAtBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 100;
+      if (isAtBottom) {
+        scrollToBottom();
+      }
     }
   }, [messages]);
 
@@ -138,6 +169,12 @@ export function AdminDashboard() {
   useEffect(() => {
     if (selectedTicketId) {
       const ticketData = tickets.find((t) => t.id === selectedTicketId) || null;
+      
+      // Auto take-over ticket if it needs attention
+      if (ticketData?.status === 'needs-attention') {
+        updateTicket(ticketData.id, { status: 'agent' });
+      }
+
       setSelectedTicket(ticketData);
       setAgentInput("");
 
@@ -164,6 +201,7 @@ export function AdminDashboard() {
           } as Message);
         });
         setMessages(newMessages);
+        scrollToBottom();
       });
       return () => unsubscribe();
     } else {
@@ -232,10 +270,15 @@ export function AdminDashboard() {
 
   return (
     <SidebarProvider>
+       <audio ref={audioRef} src="https://www.soundjay.com/buttons/sounds/button-16.mp3" preload="auto" />
       <Sidebar variant="sidebar" collapsible="icon">
         <SidebarHeader>
           <div className="flex items-center gap-2 p-2 group-data-[collapsible=icon]:justify-center">
-            <BrainCircuit className="w-7 h-7 text-primary" />
+             {settings.brandLogoUrl ? (
+                <Image src={settings.brandLogoUrl} alt="Brand Logo" width={28} height={28} className="w-7 h-7 object-contain"/>
+             ) : (
+                <BrainCircuit className="w-7 h-7 text-primary" />
+             )}
             <span className="text-xl font-headline font-semibold group-data-[collapsible=icon]:hidden">
               ShopAssist
             </span>
@@ -248,7 +291,10 @@ export function AdminDashboard() {
                 <Link href={`/admin?ticketId=${ticket.id}`}>
                   <SidebarMenuButton
                     isActive={selectedTicketId === ticket.id}
-                    className="h-auto flex-col items-start p-2"
+                    className={cn(
+                        "h-auto flex-col items-start p-2",
+                        ticket.status === 'needs-attention' && 'animate-attention'
+                    )}
                     tooltip={ticket.customer.name}
                   >
                     <div className="flex justify-between w-full items-center">
@@ -269,6 +315,8 @@ export function AdminDashboard() {
                             ? "outline"
                             : ticket.status === "agent"
                             ? "default"
+                            : ticket.status === "needs-attention"
+                            ? "destructive"
                             : "secondary"
                         }
                       >
@@ -335,8 +383,8 @@ export function AdminDashboard() {
                   </div>
                 </CardHeader>
                 <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
-                  <ScrollArea className="flex-1 p-6" ref={scrollAreaRef}>
-                    <div className="space-y-6">
+                  <ScrollArea className="flex-1" ref={scrollAreaRef}>
+                    <div className="space-y-6 p-6">
                       {messages.map((message) => (
                         <div
                           key={message.id}
@@ -357,7 +405,7 @@ export function AdminDashboard() {
                                 }
                               />
                               <AvatarFallback>
-                                {message.role === "assistant" ? "A" : "S"}
+                                {message.role === "assistant" ? "A" : settings.agentName?.charAt(0) || 'S'}
                               </AvatarFallback>
                             </Avatar>
                           )}
@@ -371,7 +419,7 @@ export function AdminDashboard() {
                                 : "bg-card border rounded-bl-none"
                             )}
                           >
-                            <p className="text-sm" style={{ whiteSpace: 'pre-wrap' }}>{linkify(message.content)}</p>
+                            <div className="text-sm prose" style={{ whiteSpace: 'pre-wrap' }}>{linkify(message.content)}</div>
                             <p
                               className={cn(
                                 "text-xs mt-1",
@@ -397,40 +445,40 @@ export function AdminDashboard() {
                       ))}
                     </div>
                   </ScrollArea>
-                </CardContent>
-                <CardFooter className="p-4 border-t flex flex-col items-start gap-2">
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      handleAgentSendMessage();
-                    }}
-                    className="flex items-center gap-2 w-full"
-                  >
-                    <Textarea
-                      value={agentInput}
-                      onChange={(e) => setAgentInput(e.target.value)}
-                      placeholder="Type your response as an agent..."
-                      className="flex-1 resize-none"
-                      rows={1}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          handleAgentSendMessage();
-                        }
+                   <div className="p-4 border-t bg-background/80">
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        handleAgentSendMessage();
                       }}
-                      disabled={selectedTicket.status === "closed" || isSending}
-                    />
-                    <Button
-                      type="submit"
-                      size="icon"
-                      disabled={
-                        !agentInput.trim() || selectedTicket.status === "closed" || isSending
-                      }
+                      className="flex items-center gap-2 w-full"
                     >
-                      {isSending ? <Loader2 className="w-5 h-5 animate-spin"/> : <Send className="w-5 h-5" />}
-                    </Button>
-                  </form>
-                </CardFooter>
+                      <Textarea
+                        value={agentInput}
+                        onChange={(e) => setAgentInput(e.target.value)}
+                        placeholder="Type your response as an agent..."
+                        className="flex-1 resize-none"
+                        rows={1}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            handleAgentSendMessage();
+                          }
+                        }}
+                        disabled={selectedTicket.status === "closed" || isSending}
+                      />
+                      <Button
+                        type="submit"
+                        size="icon"
+                        disabled={
+                          !agentInput.trim() || selectedTicket.status === "closed" || isSending
+                        }
+                      >
+                        {isSending ? <Loader2 className="w-5 h-5 animate-spin"/> : <Send className="w-5 h-5" />}
+                      </Button>
+                    </form>
+                  </div>
+                </CardContent>
               </Card>
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">

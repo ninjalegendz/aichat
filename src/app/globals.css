@@ -87,3 +87,9 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+    .animate-attention {
+        animation: blink-red-shadow 1.5s ease-in-out infinite;
+    }
+}

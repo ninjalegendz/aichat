@@ -16,6 +16,11 @@ export async function getAiResponse(query: string, chatHistory: string, ticketId
       systemPrompt: settings.systemPrompt,
       ticketId: ticketId,
     });
+
+    if (response.needsAttention) {
+        await updateTicket(ticketId, { status: 'needs-attention' });
+    }
+
     return response.response;
   } catch (error) {
     console.error("Error getting AI response:", error);

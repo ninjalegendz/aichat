@@ -2,6 +2,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
+import { ThemeManager } from '@/components/theme-manager';
 
 export const metadata: Metadata = {
   title: 'ShopAssist AI',
@@ -22,8 +23,10 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro&display=swap" rel="stylesheet"></link>
       </head>
       <body className="font-body antialiased">
-        {children}
-        <Toaster />
+        <ThemeManager>
+          {children}
+          <Toaster />
+        </ThemeManager>
       </body>
     </html>
   );
