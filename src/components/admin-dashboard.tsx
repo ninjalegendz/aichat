@@ -920,15 +920,12 @@ export function AdminDashboard() {
                                         </AvatarFallback>
                                     </Avatar>
                                 
-                                    <div
-                                        className={cn(
-                                            "flex items-center gap-2",
-                                            message.role !== "user" && "flex-row-reverse"
-                                        )}
-                                    >
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => { e.stopPropagation(); setReplyingTo(message);}}>
-                                            <MessageSquareReply className="w-4 h-4"/>
-                                        </Button>
+                                    <div className="flex items-center gap-2">
+                                        {message.role !== 'user' &&
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 self-center md:opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => { e.stopPropagation(); setReplyingTo(message);}}>
+                                                <MessageSquareReply className="w-4 h-4"/>
+                                            </Button>
+                                        }
                                         <div
                                             className={cn(
                                                 "max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl",
@@ -950,6 +947,11 @@ export function AdminDashboard() {
                                                 {format(new Date(message.createdAt), "p")}
                                             </p>
                                         </div>
+                                         {message.role === 'user' &&
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 self-center md:opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => { e.stopPropagation(); setReplyingTo(message);}}>
+                                                <MessageSquareReply className="w-4 h-4"/>
+                                            </Button>
+                                        }
                                     </div>
                                 </div>
                             </div>
