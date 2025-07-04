@@ -525,27 +525,9 @@ export function AdminDashboard() {
   const DetailsPanel = () => (
     <Card className="w-full h-full border-0 rounded-none flex flex-col">
       <CardHeader className="border-b">
-        <div className="flex justify-between items-center">
-            <CardTitle className="flex items-center gap-2">
-                <Contact className="w-6 h-6" /> Customer Details
-            </CardTitle>
-             <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
-                        <Download className="mr-2 h-4 w-4" />
-                        Download
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => handleDownloadTranscript('txt')}>
-                        As TXT
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleDownloadTranscript('json')}>
-                        As JSON
-                    </DropdownMenuItem>
-                </DropdownMenuContent>
-            </DropdownMenu>
-        </div>
+        <CardTitle className="flex items-center gap-2">
+            <Contact className="w-6 h-6" /> Customer Details
+        </CardTitle>
          <div className="flex items-center gap-2 pt-2 flex-wrap">
             {selectedTicket?.status !== "agent" && (
             <Button
@@ -630,6 +612,22 @@ export function AdminDashboard() {
             rows={6}
           />
         </div>
+         <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-full">
+                    <Download className="mr-2 h-4 w-4" />
+                    Download Transcript
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[--radix-dropdown-menu-trigger-width]">
+                <DropdownMenuItem onClick={() => handleDownloadTranscript('txt')}>
+                    As TXT
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleDownloadTranscript('json')}>
+                    As JSON
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
       </CardContent>
       <CardFooter>
         <Button onClick={handleSaveChanges} disabled={isSaving} className="w-full">
