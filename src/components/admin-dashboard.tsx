@@ -458,6 +458,17 @@ export function AdminDashboard() {
   };
 
   const handleMessageSelection = (messageId: string, isShiftClick: boolean) => {
+    const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
+    const scrollPosition = viewport?.scrollTop;
+
+    const restoreScroll = () => {
+        if (viewport && scrollPosition !== undefined) {
+            requestAnimationFrame(() => {
+                viewport.scrollTop = scrollPosition;
+            });
+        }
+    };
+
     if (isShiftClick && lastSelectedMessageId && !isMobile) {
         const lastIndex = messages.findIndex(m => m.id === lastSelectedMessageId);
         const currentIndex = messages.findIndex(m => m.id === messageId);
@@ -472,6 +483,7 @@ export function AdminDashboard() {
                 rangeIds.forEach(id => newSelection.add(id));
                 return Array.from(newSelection);
             });
+            restoreScroll();
             return;
         }
     }
@@ -488,7 +500,8 @@ export function AdminDashboard() {
         setLastSelectedMessageId(messageId);
         return Array.from(newSelection);
     });
-};
+    restoreScroll();
+  };
 
   const handleMessageClick = (messageId: string, isShift: boolean) => {
     if (isMobile) {
@@ -1208,5 +1221,7 @@ export function AdminDashboard() {
     </SidebarProvider>
   );
 }
+
+    
 
     
