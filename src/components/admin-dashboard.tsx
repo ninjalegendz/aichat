@@ -33,7 +33,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition, useLayoutEffect } from "react";
+import { useEffect, useRef, useState, useTransition, useLayoutEffect, useCallback, memo } from "react";
 import { format, formatDistanceToNow } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Badge } from "./ui/badge";
@@ -100,6 +100,155 @@ import {
 } from "./ui/alert-dialog";
 import { useSwipeable } from "react-swipeable";
 import { DocumentationModal } from "./documentation-modal";
+
+const RepliedMessage = ({ message, settings }: { message: NonNullable<Message['replyTo']>, settings: Partial<Settings> }) => {
+    const getRoleName = () => {
+      switch (message.role) {
+        case 'user': return 'Customer';
+        case 'agent': return settings.agentName || 'Agent';
+        case 'assistant': return 'AI Assistant';
+        default: return 'User';
+      }
+    }
+    return (
+        <div className="p-2 rounded-md mb-2 text-sm bg-black/5 border-l-2 border-primary/50">
+            <p className="font-semibold text-xs text-muted-foreground">
+                {getRoleName()}
+            </p>
+            <p className="truncate text-muted-foreground select-text">{message.content}</p>
+        </div>
+    )
+};
+
+interface MessageItemProps {
+    message: Message;
+    selectedTicket: Ticket;
+    settings: Partial<Settings>;
+    isSelected: boolean;
+    isSelectionModeActive: boolean;
+    isMobile: boolean;
+    onMessageClick: (messageId: string, isShift: boolean) => void;
+    onTouchStart: (messageId: string) => void;
+    onTouchEnd: () => void;
+    onTouchMove: () => void;
+    onReply: (message: Message) => void;
+}
+
+const MessageItem = ({ 
+    message, 
+    selectedTicket, 
+    settings, 
+    isSelected, 
+    isSelectionModeActive, 
+    isMobile,
+    onMessageClick, 
+    onTouchStart, 
+    onTouchEnd, 
+    onTouchMove, 
+    onReply 
+}: MessageItemProps) => {
+
+    const handleItemClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+        onMessageClick(message.id, e.shiftKey);
+    }, [message.id, onMessageClick]);
+    
+    const handleItemTouchStart = useCallback(() => {
+        onTouchStart(message.id);
+    }, [message.id, onTouchStart]);
+
+    const handleReplyClick = useCallback((e: React.MouseEvent) => {
+        e.stopPropagation();
+        onReply(message);
+    }, [message, onReply]);
+
+    return (
+        <div
+            className="flex items-start gap-3 group select-none"
+            onClick={handleItemClick}
+            onTouchStart={handleItemTouchStart}
+            onTouchEnd={onTouchEnd}
+            onTouchMove={onTouchMove}
+        >
+            <div className={cn(
+                "flex flex-1 items-start gap-3",
+                message.role === 'user' ? 'justify-start' : 'justify-end'
+            )}>
+                <div
+                    className={cn(
+                        "flex items-start gap-3",
+                        message.role !== "user" && "flex-row-reverse"
+                    )}
+                >
+                    <Avatar className="w-8 h-8">
+                        <AvatarImage
+                            src={
+                            message.role === "user"
+                                ? selectedTicket.customer.avatar
+                                : message.role === "assistant"
+                                ? undefined
+                                : settings.agentAvatar
+                            }
+                        />
+                        <AvatarFallback>
+                            {message.role === "user"
+                            ? selectedTicket.customer.name.charAt(0)
+                            : message.role === "assistant" ? "A" : settings.agentName?.charAt(0) || 'S'}
+                        </AvatarFallback>
+                    </Avatar>
+                
+                    <div className={cn(
+                        "flex items-center gap-2",
+                        message.role === 'user' && 'flex-row-reverse'
+                    )}>
+                        <Button variant="ghost" size="icon" className={cn("h-7 w-7 self-center transition-opacity", isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')} onClick={handleReplyClick}>
+                            <MessageSquareReply className="w-4 h-4"/>
+                        </Button>
+                        <div
+                            className={cn(
+                                "max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl",
+                                message.role === "user"
+                                ? "bg-muted rounded-bl-none"
+                                : "bg-primary text-primary-foreground rounded-br-none"
+                            )}
+                        >
+                            {message.replyTo && <RepliedMessage message={message.replyTo} settings={settings} />}
+                            {message.content && <div className="text-sm prose select-text" style={{ whiteSpace: 'pre-wrap' }}>{linkify(message.content)}</div>}
+                            <p
+                                className={cn(
+                                "text-xs mt-1",
+                                message.role === "user"
+                                    ? "text-muted-foreground/70"
+                                    : "text-primary-foreground/70"
+                                )}
+                            >
+                                {format(new Date(message.createdAt), "p")}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div
+                className={cn(
+                    "self-center flex-shrink-0 transition-opacity",
+                    isMobile
+                    ? isSelectionModeActive ? "opacity-100" : "opacity-0"
+                    : "opacity-0 group-hover:opacity-100 data-[selected=true]:opacity-100",
+                    isSelectionModeActive ? "cursor-pointer" : "cursor-default"
+                )}
+                data-selected={isSelected}
+            >
+                <Checkbox
+                    id={`select-msg-${message.id}`}
+                    checked={isSelected}
+                    readOnly
+                    className="pointer-events-none"
+                />
+            </div>
+        </div>
+    );
+};
+
+const MemoizedMessageItem = memo(MessageItem);
 
 export function AdminDashboard() {
   const router = useRouter();
@@ -468,7 +617,7 @@ export function AdminDashboard() {
     }
   }, [selectedMessages]);
 
-  const handleMessageSelection = (messageId: string, isShiftClick: boolean) => {
+  const handleMessageSelection = useCallback((messageId: string, isShiftClick: boolean) => {
     const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
     if (viewport) {
       scrollPositionRef.current = viewport.scrollTop;
@@ -504,9 +653,9 @@ export function AdminDashboard() {
         setLastSelectedMessageId(messageId);
         return Array.from(newSelection);
     });
-  };
+  }, [lastSelectedMessageId, isMobile, messages]);
 
-  const handleMessageClick = (messageId: string, isShift: boolean) => {
+  const handleMessageClick = useCallback((messageId: string, isShift: boolean) => {
     if (isMobile) {
       if (isSelectionModeActive) {
         handleMessageSelection(messageId, false);
@@ -514,9 +663,9 @@ export function AdminDashboard() {
     } else {
       handleMessageSelection(messageId, isShift);
     }
-  };
+  }, [isMobile, isSelectionModeActive, handleMessageSelection]);
   
-  const handleTouchStart = (messageId: string) => {
+  const handleTouchStart = useCallback((messageId: string) => {
     if (!isMobile) return;
     longPressTimer.current = setTimeout(() => {
       if (!isSelectionModeActive) {
@@ -525,14 +674,14 @@ export function AdminDashboard() {
       handleMessageSelection(messageId, false);
       longPressTimer.current = null;
     }, 500);
-  };
+  }, [isMobile, isSelectionModeActive, handleMessageSelection]);
 
-  const handleTouchMoveOrEnd = () => {
+  const handleTouchMoveOrEnd = useCallback(() => {
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
     }
-  };
+  }, []);
 
   const handleDeleteSelectedMessages = () => {
     if (!selectedTicket || selectedMessages.length === 0) return;
@@ -573,25 +722,6 @@ export function AdminDashboard() {
       </p>
     </div>
   );
-
-  const RepliedMessage = ({ message, settings }: { message: NonNullable<Message['replyTo']>, settings: Partial<Settings> }) => {
-    const getRoleName = () => {
-      switch (message.role) {
-        case 'user': return 'Customer';
-        case 'agent': return settings.agentName || 'Agent';
-        case 'assistant': return 'AI Assistant';
-        default: return 'User';
-      }
-    }
-    return (
-        <div className="p-2 rounded-md mb-2 text-sm bg-black/5 border-l-2 border-primary/50">
-            <p className="font-semibold text-xs text-muted-foreground">
-                {getRoleName()}
-            </p>
-            <p className="truncate text-muted-foreground select-text">{message.content}</p>
-        </div>
-    )
-  }
 
   const DetailsPanel = () => (
     <Card className="w-full h-full border-0 rounded-none flex flex-col">
@@ -986,90 +1116,20 @@ export function AdminDashboard() {
                     <ScrollArea className="flex-1" ref={scrollAreaRef}>
                       <div className="space-y-2 p-4 md:p-6">
                         {messages.map((message) => (
-                          <div
-                            key={message.id}
-                            className="flex items-start gap-3 group select-none"
-                            onClick={(e) => handleMessageClick(message.id, e.shiftKey)}
-                            onTouchStart={() => handleTouchStart(message.id)}
-                            onTouchEnd={handleTouchMoveOrEnd}
-                            onTouchMove={handleTouchMoveOrEnd}
-                          >
-                             <div className={cn(
-                                "flex flex-1 items-start gap-3",
-                                message.role === 'user' ? 'justify-start' : 'justify-end'
-                            )}>
-                                <div
-                                    className={cn(
-                                      "flex items-start gap-3",
-                                      message.role !== "user" && "flex-row-reverse"
-                                    )}
-                                >
-                                    <Avatar className="w-8 h-8">
-                                        <AvatarImage
-                                            src={
-                                            message.role === "user"
-                                                ? selectedTicket.customer.avatar
-                                                : message.role === "assistant"
-                                                ? undefined
-                                                : settings.agentAvatar
-                                            }
-                                        />
-                                        <AvatarFallback>
-                                            {message.role === "user"
-                                            ? selectedTicket.customer.name.charAt(0)
-                                            : message.role === "assistant" ? "A" : settings.agentName?.charAt(0) || 'S'}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                
-                                    <div className={cn(
-                                        "flex items-center gap-2",
-                                        message.role === 'user' && 'flex-row-reverse'
-                                    )}>
-                                        <Button variant="ghost" size="icon" className={cn("h-7 w-7 self-center transition-opacity", isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')} onClick={(e) => { e.stopPropagation(); setReplyingTo(message);}}>
-                                            <MessageSquareReply className="w-4 h-4"/>
-                                        </Button>
-                                        <div
-                                            className={cn(
-                                                "max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl",
-                                                message.role === "user"
-                                                ? "bg-muted rounded-bl-none"
-                                                : "bg-primary text-primary-foreground rounded-br-none"
-                                            )}
-                                        >
-                                            {message.replyTo && <RepliedMessage message={message.replyTo} settings={settings} />}
-                                            {message.content && <div className="text-sm prose select-text" style={{ whiteSpace: 'pre-wrap' }}>{linkify(message.content)}</div>}
-                                            <p
-                                                className={cn(
-                                                "text-xs mt-1",
-                                                message.role === "user"
-                                                    ? "text-muted-foreground/70"
-                                                    : "text-primary-foreground/70"
-                                                )}
-                                            >
-                                                {format(new Date(message.createdAt), "p")}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                             <div
-                                className={cn(
-                                    "self-center flex-shrink-0 transition-opacity",
-                                    isMobile
-                                    ? isSelectionModeActive ? "opacity-100" : "opacity-0"
-                                    : "opacity-0 group-hover:opacity-100 data-[selected=true]:opacity-100",
-                                    isSelectionModeActive ? "cursor-pointer" : "cursor-default"
-                                )}
-                                data-selected={selectedMessages.includes(message.id)}
-                            >
-                                <Checkbox
-                                    id={`select-msg-${message.id}`}
-                                    checked={selectedMessages.includes(message.id)}
-                                    readOnly
-                                    className="pointer-events-none"
-                                />
-                            </div>
-                          </div>
+                           <MemoizedMessageItem
+                                key={message.id}
+                                message={message}
+                                selectedTicket={selectedTicket}
+                                settings={settings}
+                                isSelected={selectedMessages.includes(message.id)}
+                                isSelectionModeActive={isSelectionModeActive}
+                                isMobile={isMobile}
+                                onMessageClick={handleMessageClick}
+                                onTouchStart={handleTouchStart}
+                                onTouchEnd={handleTouchMoveOrEnd}
+                                onTouchMove={handleTouchMoveOrEnd}
+                                onReply={setReplyingTo}
+                            />
                         ))}
                       </div>
                     </ScrollArea>
