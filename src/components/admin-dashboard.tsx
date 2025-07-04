@@ -730,7 +730,7 @@ export function AdminDashboard() {
                             key={message.id}
                             className={cn(
                               "flex items-start gap-3 group",
-                              message.role === "user"
+                              message.role !== "user"
                                 ? "flex-row-reverse"
                                 : ""
                             )}
@@ -755,7 +755,7 @@ export function AdminDashboard() {
                             <div
                               className={cn(
                                 "flex items-center gap-2",
-                                message.role === "user" && "flex-row-reverse"
+                                message.role !== "user" && "flex-row-reverse"
                               )}
                             >
                                 <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setReplyingTo(message)}>
@@ -765,10 +765,10 @@ export function AdminDashboard() {
                                 className={cn(
                                     "max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl",
                                     message.role === "user"
-                                    ? "bg-muted rounded-br-none"
+                                    ? "bg-muted rounded-bl-none"
                                     : message.role === "agent"
-                                    ? "bg-primary text-primary-foreground rounded-bl-none"
-                                    : "bg-card border rounded-bl-none"
+                                    ? "bg-primary text-primary-foreground rounded-br-none"
+                                    : "bg-card border rounded-br-none"
                                 )}
                                 >
                                 {message.replyTo && <RepliedMessage message={message.replyTo} settings={settings} />}
