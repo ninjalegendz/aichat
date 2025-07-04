@@ -11,6 +11,7 @@ import {
   BellOff,
   Bot,
   BrainCircuit,
+  BookUser,
   Contact,
   Download,
   Loader2,
@@ -98,6 +99,7 @@ import {
   AlertDialogTrigger,
 } from "./ui/alert-dialog";
 import { useSwipeable } from "react-swipeable";
+import { DocumentationModal } from "./documentation-modal";
 
 export function AdminDashboard() {
   const router = useRouter();
@@ -128,6 +130,7 @@ export function AdminDashboard() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const prevTicketsRef = useRef<Ticket[]>([]);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [isDocumentationOpen, setIsDocumentationOpen] = useState(false);
 
   // Message selection state
   const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
@@ -674,7 +677,8 @@ export function AdminDashboard() {
 
   return (
     <SidebarProvider>
-       <audio ref={audioRef} src="https://files.catbox.moe/em648t.mp3" preload="auto" />
+      <audio ref={audioRef} src="https://files.catbox.moe/em648t.mp3" preload="auto" />
+      <DocumentationModal open={isDocumentationOpen} onOpenChange={setIsDocumentationOpen} />
       <Sidebar variant="sidebar" collapsible="icon">
         <SidebarHeader>
           <div className="flex items-center gap-2 p-2 group-data-[collapsible=icon]:justify-center">
@@ -757,6 +761,12 @@ export function AdminDashboard() {
         <SidebarFooter>
           <SidebarSeparator/>
            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton onClick={() => setIsDocumentationOpen(true)} tooltip="Documentation">
+                    <BookUser/>
+                    <span>Documentation</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               <SidebarMenuItem>
                 <Link href="/admin/settings">
                     <SidebarMenuButton tooltip="Settings">
@@ -916,7 +926,7 @@ export function AdminDashboard() {
                         {messages.map((message) => (
                           <div
                             key={message.id}
-                            className="flex w-full items-start gap-3 group select-none"
+                            className="flex items-start gap-3 group select-none"
                             onClick={(e) => handleMessageSelection(message.id, e.shiftKey)}
                           >
                              <div className={cn(
@@ -946,12 +956,13 @@ export function AdminDashboard() {
                                         </AvatarFallback>
                                     </Avatar>
                                 
-                                    <div className="flex items-center gap-2">
-                                        {message.role !== 'user' &&
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 self-center opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => { e.stopPropagation(); setReplyingTo(message);}}>
-                                                <MessageSquareReply className="w-4 h-4"/>
-                                            </Button>
-                                        }
+                                    <div className={cn(
+                                        "flex items-center gap-2",
+                                        message.role === 'user' && 'flex-row-reverse'
+                                    )}>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 self-center opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => { e.stopPropagation(); setReplyingTo(message);}}>
+                                            <MessageSquareReply className="w-4 h-4"/>
+                                        </Button>
                                         <div
                                             className={cn(
                                                 "max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl",
@@ -973,11 +984,6 @@ export function AdminDashboard() {
                                                 {format(new Date(message.createdAt), "p")}
                                             </p>
                                         </div>
-                                         {message.role === 'user' &&
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 self-center opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => { e.stopPropagation(); setReplyingTo(message);}}>
-                                                <MessageSquareReply className="w-4 h-4"/>
-                                            </Button>
-                                        }
                                     </div>
                                 </div>
                             </div>
