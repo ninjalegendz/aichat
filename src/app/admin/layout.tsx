@@ -6,6 +6,7 @@ import { useEffect, useState, ReactNode } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { Bot } from "lucide-react";
+import { PushNotificationManager } from "@/components/push-notification-manager";
 
 export default function AdminLayout({
   children,
@@ -14,10 +15,12 @@ export default function AdminLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
       if (!user && pathname !== "/admin/login") {
         router.push("/admin/login");
       } else {
@@ -39,5 +42,10 @@ export default function AdminLayout({
     );
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      {user && <PushNotificationManager />}
+      {children}
+    </>
+  );
 }

@@ -14,6 +14,7 @@ import {
   FirestoreDataConverter,
   deleteDoc,
   writeBatch,
+  where,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type { Ticket, Message, Settings } from './types';
@@ -115,6 +116,16 @@ export async function getMessages(ticketId: string): Promise<Message[]> {
           createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
       } as Message
   });
+}
+
+// Saves a device's FCM token to Firestore so we can send it push notifications.
+export async function saveFcmToken(uid: string, token: string): Promise<void> {
+    const tokenRef = doc(db, `fcmTokens/${uid}/tokens/${token}`);
+    await setDoc(tokenRef, { 
+        uid,
+        token,
+        createdAt: serverTimestamp(),
+     });
 }
 
 const DEFAULT_SETTINGS: Settings = {
