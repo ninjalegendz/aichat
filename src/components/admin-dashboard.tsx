@@ -129,6 +129,7 @@ export function AdminDashboard() {
 
   // Message selection state
   const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
+  const [lastSelectedMessageId, setLastSelectedMessageId] = useState<string | null>(null);
   const [isDeleting, startDeleteTransition] = useTransition();
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -236,7 +237,8 @@ export function AdminDashboard() {
       setSelectedTicket(ticketData);
       setAgentInput("");
       setReplyingTo(null);
-      setSelectedMessages([]); // Clear selection when ticket changes
+      setSelectedMessages([]);
+      setLastSelectedMessageId(null);
 
       if (ticketData) {
         setCustomerName(ticketData.customer.name);
@@ -244,7 +246,7 @@ export function AdminDashboard() {
         setTicketSummary(ticketData.summary || "");
       }
       
-      hasScrolledRef.current = false; // Reset scroll flag for new ticket
+      hasScrolledRef.current = false;
 
       const messagesQuery = query(
         collection(db, `tickets/${selectedTicketId}/messages`),
@@ -428,13 +430,38 @@ export function AdminDashboard() {
     });
   };
 
-  const handleToggleMessageSelection = (messageId: string) => {
-    setSelectedMessages((prev) =>
-      prev.includes(messageId)
-        ? prev.filter((id) => id !== messageId)
-        : [...prev, messageId]
-    );
-  };
+  const handleMessageSelection = (messageId: string, isShiftClick: boolean) => {
+    if (isShiftClick && lastSelectedMessageId) {
+        const lastIndex = messages.findIndex(m => m.id === lastSelectedMessageId);
+        const currentIndex = messages.findIndex(m => m.id === messageId);
+        
+        if (lastIndex !== -1) {
+            const start = Math.min(lastIndex, currentIndex);
+            const end = Math.max(lastIndex, currentIndex);
+            const rangeIds = messages.slice(start, end + 1).map(m => m.id);
+            
+            setSelectedMessages(prev => {
+                const newSelection = new Set(prev);
+                rangeIds.forEach(id => newSelection.add(id));
+                return Array.from(newSelection);
+            });
+            return;
+        }
+    }
+    
+    // Normal toggle
+    setSelectedMessages(prev => {
+        const newSelection = new Set(prev);
+        if (newSelection.has(messageId)) {
+            newSelection.delete(messageId);
+        } else {
+            newSelection.add(messageId);
+        }
+        // Set anchor point on simple click
+        setLastSelectedMessageId(messageId);
+        return Array.from(newSelection);
+    });
+};
 
   const handleDeleteSelectedMessages = () => {
     if (!selectedTicket || selectedMessages.length === 0) return;
@@ -442,6 +469,7 @@ export function AdminDashboard() {
       try {
         await deleteMessagesAction(selectedTicket.id, selectedMessages);
         setSelectedMessages([]);
+        setLastSelectedMessageId(null);
         toast({
           title: "Messages Deleted",
           description: "The selected messages have been removed.",
@@ -748,30 +776,49 @@ export function AdminDashboard() {
                         ID: {selectedTicket.id.substring(0, 8)}
                       </CardDescription>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-4">
                        {selectedMessages.length > 0 && (
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button variant="destructive" size="sm" disabled={isDeleting}>
-                                    {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                                    Delete ({selectedMessages.length})
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        This action cannot be undone. This will permanently delete the selected {selectedMessages.length === 1 ? 'message' : 'messages'}.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={handleDeleteSelectedMessages}>
-                                        Delete
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
+                        <>
+                            <div className="flex items-center space-x-2 border-r pr-4">
+                                <Checkbox
+                                    id="select-all"
+                                    checked={messages.length > 0 && selectedMessages.length === messages.length}
+                                    onCheckedChange={(checked) => {
+                                        if (checked) {
+                                            setSelectedMessages(messages.map(m => m.id));
+                                        } else {
+                                            setSelectedMessages([]);
+                                            setLastSelectedMessageId(null);
+                                        }
+                                    }}
+                                />
+                                <Label htmlFor="select-all" className="text-sm font-medium leading-none cursor-pointer">
+                                    Select All
+                                </Label>
+                            </div>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="destructive" size="sm" disabled={isDeleting}>
+                                        {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                                        Delete ({selectedMessages.length})
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This action cannot be undone. This will permanently delete the selected {selectedMessages.length === 1 ? 'message' : 'messages'}.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={handleDeleteSelectedMessages}>
+                                            Delete
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </>
                       )}
                       <Button
                           size="icon"
@@ -797,66 +844,74 @@ export function AdminDashboard() {
                           <div
                             key={message.id}
                             className={cn(
-                              "flex items-start gap-3 group",
-                              message.role === "user" ? "" : "flex-row-reverse"
+                              "flex w-full items-start gap-3 group",
+                              message.role !== "user" ? "justify-end" : "justify-start"
                             )}
                           >
-                             <Checkbox
-                                id={`select-msg-${message.id}`}
-                                checked={selectedMessages.includes(message.id)}
-                                onCheckedChange={() => handleToggleMessageSelection(message.id)}
-                                className="opacity-0 group-hover:opacity-100 data-[state=checked]:opacity-100 transition-opacity self-center flex-shrink-0"
-                            />
-                            <Avatar className="w-8 h-8">
-                                <AvatarImage
-                                    src={
-                                    message.role === "user"
-                                        ? selectedTicket.customer.avatar
-                                        : message.role === "assistant"
-                                        ? undefined
-                                        : settings.agentAvatar
-                                    }
-                                />
-                                <AvatarFallback>
-                                    {message.role === "user"
-                                    ? selectedTicket.customer.name.charAt(0)
-                                    : message.role === "assistant" ? "A" : settings.agentName?.charAt(0) || 'S'}
-                                </AvatarFallback>
-                            </Avatar>
-                           
-                            <div
-                              className={cn(
-                                "flex items-center gap-2",
-                                message.role !== "user" && "flex-row-reverse"
-                              )}
-                            >
-                                <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setReplyingTo(message)}>
-                                    <MessageSquareReply className="w-4 h-4"/>
-                                </Button>
+                             <div className={cn("flex items-start gap-3", message.role !== 'user' && 'flex-row-reverse')}>
+                                <div
+                                    className="self-center flex-shrink-0 opacity-0 group-hover:opacity-100 data-[selected=true]:opacity-100 transition-opacity cursor-pointer"
+                                    onClick={(e) => handleMessageSelection(message.id, e.shiftKey)}
+                                    data-selected={selectedMessages.includes(message.id)}
+                                >
+                                    <Checkbox
+                                        id={`select-msg-${message.id}`}
+                                        checked={selectedMessages.includes(message.id)}
+                                        readOnly
+                                        className="pointer-events-none"
+                                    />
+                                </div>
+                                <Avatar className="w-8 h-8">
+                                    <AvatarImage
+                                        src={
+                                        message.role === "user"
+                                            ? selectedTicket.customer.avatar
+                                            : message.role === "assistant"
+                                            ? undefined
+                                            : settings.agentAvatar
+                                        }
+                                    />
+                                    <AvatarFallback>
+                                        {message.role === "user"
+                                        ? selectedTicket.customer.name.charAt(0)
+                                        : message.role === "assistant" ? "A" : settings.agentName?.charAt(0) || 'S'}
+                                    </AvatarFallback>
+                                </Avatar>
+                            
                                 <div
                                 className={cn(
-                                    "max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl",
-                                    message.role === "user"
-                                    ? "bg-muted rounded-bl-none"
-                                    : message.role === "agent"
-                                    ? "bg-primary text-primary-foreground rounded-br-none"
-                                    : "bg-card border rounded-br-none"
+                                    "flex items-center gap-2",
+                                    message.role !== "user" && "flex-row-reverse"
                                 )}
                                 >
-                                {message.replyTo && <RepliedMessage message={message.replyTo} settings={settings} />}
-                                {message.content && <div className="text-sm prose" style={{ whiteSpace: 'pre-wrap' }}>{linkify(message.content)}</div>}
-                                <p
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setReplyingTo(message)}>
+                                        <MessageSquareReply className="w-4 h-4"/>
+                                    </Button>
+                                    <div
                                     className={cn(
-                                    "text-xs mt-1",
-                                    message.role === "agent"
-                                        ? "text-primary-foreground/70"
-                                        : "text-muted-foreground/70"
+                                        "max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl",
+                                        message.role === "user"
+                                        ? "bg-muted rounded-bl-none"
+                                        : message.role === "agent"
+                                        ? "bg-primary text-primary-foreground rounded-br-none"
+                                        : "bg-card border rounded-br-none"
                                     )}
-                                >
-                                    {format(new Date(message.createdAt), "p")}
-                                </p>
+                                    >
+                                    {message.replyTo && <RepliedMessage message={message.replyTo} settings={settings} />}
+                                    {message.content && <div className="text-sm prose" style={{ whiteSpace: 'pre-wrap' }}>{linkify(message.content)}</div>}
+                                    <p
+                                        className={cn(
+                                        "text-xs mt-1",
+                                        message.role === "agent"
+                                            ? "text-primary-foreground/70"
+                                            : "text-muted-foreground/70"
+                                        )}
+                                    >
+                                        {format(new Date(message.createdAt), "p")}
+                                    </p>
+                                    </div>
                                 </div>
-                            </div>
+                             </div>
                           </div>
                         ))}
                       </div>
