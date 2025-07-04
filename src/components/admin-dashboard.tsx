@@ -234,6 +234,10 @@ export function AdminDashboard() {
         updateTicket(ticketData.id, { status: 'agent' });
       }
 
+      if (isMobile) {
+        setIsDetailsPanelOpen(false);
+      }
+
       setSelectedTicket(ticketData);
       setAgentInput("");
       setReplyingTo(null);
@@ -276,7 +280,7 @@ export function AdminDashboard() {
       setSelectedTicket(null);
       setMessages([]);
     }
-  }, [selectedTicketId, tickets]);
+  }, [selectedTicketId, tickets, isMobile]);
 
   const handleAgentSendMessage = async () => {
     const textToSend = agentInput.trim();
@@ -1029,11 +1033,70 @@ export function AdminDashboard() {
                     </div>
                   </CardContent>
                 </Card>
+              ) : isMobile ? (
+                 <div className="flex-1 flex flex-col">
+                    <div className="p-4 text-xl font-semibold border-b sticky top-0 bg-background z-10">Tickets</div>
+                    {tickets.length > 0 ? (
+                        <ScrollArea className="flex-1">
+                            {tickets.map((ticket) => (
+                                <Link key={ticket.id} href={`/admin?ticketId=${ticket.id}`} className="contents">
+                                    <div
+                                        className={cn(
+                                            "border-b p-4 cursor-pointer hover:bg-accent/50",
+                                            ticket.status === 'needs-attention' && 'animate-attention'
+                                        )}
+                                    >
+                                        <div className="flex justify-between w-full items-center">
+                                            <div className="flex items-center gap-3">
+                                            <Avatar className="w-9 h-9">
+                                                <AvatarImage src={ticket.customer.avatar} />
+                                                <AvatarFallback>
+                                                {ticket.customer.name.charAt(0)}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <div>
+                                                <div className="font-semibold truncate pr-2">
+                                                    {ticket.customer.name}
+                                                </div>
+                                                <div className="text-xs text-muted-foreground/80 w-full mt-1">
+                                                {formatDistanceToNow(new Date(ticket.lastUpdate), { addSuffix: true })}
+                                                </div>
+                                            </div>
+                                            </div>
+                                            <Badge
+                                                variant={
+                                                ticket.status === "closed" ? "outline" :
+                                                ticket.status === "agent" ? "default" :
+                                                ticket.status === "needs-attention" ? "destructive" : "secondary"
+                                                }
+                                            >
+                                                {ticket.status}
+                                            </Badge>
+                                        </div>
+                                        <p className="text-sm text-muted-foreground w-full truncate mt-2">
+                                        {ticket.summary || "..."}
+                                        </p>
+                                    </div>
+                                </Link>
+                            ))}
+                        </ScrollArea>
+                    ) : (
+                        <div className="flex flex-col flex-1 items-center justify-center h-full text-center text-muted-foreground p-4">
+                            <MessageSquare className="w-16 h-16 mb-4" />
+                            <h2 className="text-xl font-semibold">No active tickets</h2>
+                            <p>New conversations will appear here.</p>
+                        </div>
+                    )}
+                </div>
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground p-4">
                   <MessageSquare className="w-16 h-16 mb-4" />
-                  <h2 className="text-xl font-semibold">Select a ticket</h2>
-                  <p>Choose a conversation from the left to view details.</p>
+                   <h2 className="text-xl font-semibold">
+                    {tickets.length > 0 ? "Select a ticket" : "No active tickets"}
+                  </h2>
+                  <p>
+                    {tickets.length > 0 ? "Choose a conversation from the left to view details." : "New conversations will appear here."}
+                  </p>
                 </div>
               )}
             </div>

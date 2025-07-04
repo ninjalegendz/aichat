@@ -5,6 +5,7 @@ import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { VariantProps, cva } from "class-variance-authority"
 import { PanelLeft } from "lucide-react"
+import { useSearchParams } from "next/navigation"
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
@@ -177,6 +178,14 @@ const Sidebar = React.forwardRef<
     ref
   ) => {
     const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
+    const searchParams = useSearchParams()
+    const selectedTicketId = searchParams.get("ticketId")
+
+    React.useEffect(() => {
+      if (isMobile && selectedTicketId) {
+        setOpenMobile(false)
+      }
+    }, [isMobile, selectedTicketId, setOpenMobile])
 
     if (collapsible === "none") {
       return (
