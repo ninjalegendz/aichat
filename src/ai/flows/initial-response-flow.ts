@@ -53,7 +53,7 @@ const initialResponseFlow = ai.defineFlow(
 1.  **Analyze Intent:** First, carefully analyze the "New User Message" to understand the customer's underlying intent or question. Do not just look for keywords.
 2.  **Consult Knowledge Base:** Search the "Knowledge Base" for information that is semantically related to the user's intent. The answer may not be a word-for-word match, but you should find the relevant section.
 3.  **Formulate Response:**
-    *   **If you find a relevant answer:** Formulate a helpful response based on the knowledge base information. In this case, you **MUST** set the \`needsAttention\` flag to \`false\`.
+    *   **If you find a relevant answer:** Formulate a helpful response based on the knowledge base information. **Crucially, do not just copy and paste information from the Knowledge Base. You must rephrase the answer in your own conversational and helpful tone.** In this case, you **MUST** set the \`needsAttention\` flag to \`false\`.
     *   **If you CANNOT find an answer, OR the user is clearly frustrated, OR the user explicitly asks for a human:** Formulate a response informing the user you are connecting them to an agent. In this case, you **MUST** set the \`needsAttention\` flag to \`true\`. This is the ONLY time you should set it to true.
 
 **CRITICAL INSTRUCTION:** The \`needsAttention\` flag and your text \`response\` must be consistent. If you say you are getting an agent, \`needsAttention\` **MUST** be \`true\`. If you are answering the question yourself, \`needsAttention\` **MUST** be \`false\`.
