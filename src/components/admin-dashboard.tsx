@@ -517,7 +517,7 @@ export function AdminDashboard() {
             <p className="font-semibold text-xs text-muted-foreground">
                 {getRoleName()}
             </p>
-            <p className="truncate text-muted-foreground">{message.content}</p>
+            <p className="truncate text-muted-foreground select-text">{message.content}</p>
         </div>
     )
   }
@@ -843,16 +843,16 @@ export function AdminDashboard() {
                         {messages.map((message) => (
                           <div
                             key={message.id}
-                            className="flex w-full items-center gap-3 group"
+                            className="flex w-full items-center gap-3 group select-none"
                           >
                              <div className={cn(
                                 "flex-1 flex items-start gap-3",
-                                message.role === 'user' ? 'justify-start' : 'justify-end'
+                                message.role !== 'user' ? 'justify-start' : 'justify-end'
                             )}>
                                 <div
                                     className={cn(
                                       "flex items-start gap-3",
-                                      message.role !== "user" && "flex-row-reverse"
+                                      message.role === "user" && "flex-row-reverse"
                                     )}
                                 >
                                     <Avatar className="w-8 h-8">
@@ -875,7 +875,7 @@ export function AdminDashboard() {
                                     <div
                                         className={cn(
                                             "flex items-center gap-2",
-                                            message.role !== "user" && "flex-row-reverse"
+                                            message.role === "user" && "flex-row-reverse"
                                         )}
                                     >
                                         <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setReplyingTo(message)}>
@@ -885,18 +885,18 @@ export function AdminDashboard() {
                                             className={cn(
                                                 "max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl",
                                                 message.role === "user"
-                                                ? "bg-muted rounded-bl-none"
-                                                : message.role === "agent"
                                                 ? "bg-primary text-primary-foreground rounded-br-none"
-                                                : "bg-card border rounded-br-none"
+                                                : message.role === "agent"
+                                                ? "bg-muted rounded-bl-none"
+                                                : "bg-card border rounded-bl-none"
                                             )}
                                         >
                                             {message.replyTo && <RepliedMessage message={message.replyTo} settings={settings} />}
-                                            {message.content && <div className="text-sm prose" style={{ whiteSpace: 'pre-wrap' }}>{linkify(message.content)}</div>}
+                                            {message.content && <div className="text-sm prose select-text" style={{ whiteSpace: 'pre-wrap' }}>{linkify(message.content)}</div>}
                                             <p
                                                 className={cn(
                                                 "text-xs mt-1",
-                                                message.role === "agent"
+                                                message.role === "user"
                                                     ? "text-primary-foreground/70"
                                                     : "text-muted-foreground/70"
                                                 )}
