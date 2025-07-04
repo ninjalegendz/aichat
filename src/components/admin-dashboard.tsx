@@ -843,91 +843,82 @@ export function AdminDashboard() {
                         {messages.map((message) => (
                           <div
                             key={message.id}
-                            className={cn(
-                              "flex w-full items-start gap-3 group",
-                              message.role !== "user" ? "justify-end" : "justify-start"
-                            )}
+                            className="flex w-full items-center gap-3 group"
                           >
-                             <div className={cn("flex items-start gap-3", message.role !== 'user' && 'flex-row-reverse')}>
-                                {message.role !== 'user' && (
-                                    <div
-                                        className="self-center flex-shrink-0 opacity-0 group-hover:opacity-100 data-[selected=true]:opacity-100 transition-opacity cursor-pointer"
-                                        onClick={(e) => handleMessageSelection(message.id, e.shiftKey)}
-                                        data-selected={selectedMessages.includes(message.id)}
-                                    >
-                                        <Checkbox
-                                            id={`select-msg-${message.id}`}
-                                            checked={selectedMessages.includes(message.id)}
-                                            readOnly
-                                            className="pointer-events-none"
-                                        />
-                                    </div>
-                                )}
-                                <Avatar className="w-8 h-8">
-                                    <AvatarImage
-                                        src={
-                                        message.role === "user"
-                                            ? selectedTicket.customer.avatar
-                                            : message.role === "assistant"
-                                            ? undefined
-                                            : settings.agentAvatar
-                                        }
-                                    />
-                                    <AvatarFallback>
-                                        {message.role === "user"
-                                        ? selectedTicket.customer.name.charAt(0)
-                                        : message.role === "assistant" ? "A" : settings.agentName?.charAt(0) || 'S'}
-                                    </AvatarFallback>
-                                </Avatar>
-                            
+                             <div className={cn(
+                                "flex-1 flex items-start gap-3",
+                                message.role === 'user' ? 'justify-start' : 'justify-end'
+                            )}>
                                 <div
-                                className={cn(
-                                    "flex items-center gap-2",
-                                    message.role !== "user" && "flex-row-reverse"
-                                )}
-                                >
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setReplyingTo(message)}>
-                                        <MessageSquareReply className="w-4 h-4"/>
-                                    </Button>
-                                    <div
                                     className={cn(
-                                        "max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl",
-                                        message.role === "user"
-                                        ? "bg-muted rounded-bl-none"
-                                        : message.role === "agent"
-                                        ? "bg-primary text-primary-foreground rounded-br-none"
-                                        : "bg-card border rounded-br-none"
+                                      "flex items-start gap-3",
+                                      message.role !== "user" && "flex-row-reverse"
                                     )}
-                                    >
-                                    {message.replyTo && <RepliedMessage message={message.replyTo} settings={settings} />}
-                                    {message.content && <div className="text-sm prose" style={{ whiteSpace: 'pre-wrap' }}>{linkify(message.content)}</div>}
-                                    <p
+                                >
+                                    <Avatar className="w-8 h-8">
+                                        <AvatarImage
+                                            src={
+                                            message.role === "user"
+                                                ? selectedTicket.customer.avatar
+                                                : message.role === "assistant"
+                                                ? undefined
+                                                : settings.agentAvatar
+                                            }
+                                        />
+                                        <AvatarFallback>
+                                            {message.role === "user"
+                                            ? selectedTicket.customer.name.charAt(0)
+                                            : message.role === "assistant" ? "A" : settings.agentName?.charAt(0) || 'S'}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                
+                                    <div
                                         className={cn(
-                                        "text-xs mt-1",
-                                        message.role === "agent"
-                                            ? "text-primary-foreground/70"
-                                            : "text-muted-foreground/70"
+                                            "flex items-center gap-2",
+                                            message.role !== "user" && "flex-row-reverse"
                                         )}
                                     >
-                                        {format(new Date(message.createdAt), "p")}
-                                    </p>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setReplyingTo(message)}>
+                                            <MessageSquareReply className="w-4 h-4"/>
+                                        </Button>
+                                        <div
+                                            className={cn(
+                                                "max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl",
+                                                message.role === "user"
+                                                ? "bg-muted rounded-bl-none"
+                                                : message.role === "agent"
+                                                ? "bg-primary text-primary-foreground rounded-br-none"
+                                                : "bg-card border rounded-br-none"
+                                            )}
+                                        >
+                                            {message.replyTo && <RepliedMessage message={message.replyTo} settings={settings} />}
+                                            {message.content && <div className="text-sm prose" style={{ whiteSpace: 'pre-wrap' }}>{linkify(message.content)}</div>}
+                                            <p
+                                                className={cn(
+                                                "text-xs mt-1",
+                                                message.role === "agent"
+                                                    ? "text-primary-foreground/70"
+                                                    : "text-muted-foreground/70"
+                                                )}
+                                            >
+                                                {format(new Date(message.createdAt), "p")}
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
-                                {message.role === 'user' && (
-                                    <div
-                                        className="self-center flex-shrink-0 opacity-0 group-hover:opacity-100 data-[selected=true]:opacity-100 transition-opacity cursor-pointer"
-                                        onClick={(e) => handleMessageSelection(message.id, e.shiftKey)}
-                                        data-selected={selectedMessages.includes(message.id)}
-                                    >
-                                        <Checkbox
-                                            id={`select-msg-${message.id}`}
-                                            checked={selectedMessages.includes(message.id)}
-                                            readOnly
-                                            className="pointer-events-none"
-                                        />
-                                    </div>
-                                )}
-                             </div>
+                            </div>
+                            <div
+                                className="self-center flex-shrink-0 opacity-0 group-hover:opacity-100 data-[selected=true]:opacity-100 transition-opacity cursor-pointer"
+                                onClick={(e) => handleMessageSelection(message.id, e.shiftKey)}
+                                data-selected={selectedMessages.includes(message.id)}
+                            >
+                                <Checkbox
+                                    id={`select-msg-${message.id}`}
+                                    checked={selectedMessages.includes(message.id)}
+                                    readOnly
+                                    className="pointer-events-none"
+                                />
+                            </div>
                           </div>
                         ))}
                       </div>
