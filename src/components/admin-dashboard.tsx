@@ -33,7 +33,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition, useLayoutEffect } from "react";
 import { format, formatDistanceToNow } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Badge } from "./ui/badge";
@@ -142,6 +142,7 @@ export function AdminDashboard() {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const selectedTicketId = searchParams.get("ticketId");
   const hasScrolledRef = useRef(false);
+  const scrollPositionRef = useRef<number | null>(null);
 
   useEffect(() => {
     return () => {
@@ -457,17 +458,21 @@ export function AdminDashboard() {
     });
   };
 
+  useLayoutEffect(() => {
+    if (scrollPositionRef.current !== null) {
+      const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
+      if (viewport) {
+        viewport.scrollTop = scrollPositionRef.current;
+      }
+      scrollPositionRef.current = null; // Reset after restoring
+    }
+  }, [selectedMessages]);
+
   const handleMessageSelection = (messageId: string, isShiftClick: boolean) => {
     const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
-    const scrollPosition = viewport?.scrollTop;
-
-    const restoreScroll = () => {
-        if (viewport && scrollPosition !== undefined) {
-            requestAnimationFrame(() => {
-                viewport.scrollTop = scrollPosition;
-            });
-        }
-    };
+    if (viewport) {
+      scrollPositionRef.current = viewport.scrollTop;
+    }
 
     if (isShiftClick && lastSelectedMessageId && !isMobile) {
         const lastIndex = messages.findIndex(m => m.id === lastSelectedMessageId);
@@ -483,7 +488,6 @@ export function AdminDashboard() {
                 rangeIds.forEach(id => newSelection.add(id));
                 return Array.from(newSelection);
             });
-            restoreScroll();
             return;
         }
     }
@@ -500,7 +504,6 @@ export function AdminDashboard() {
         setLastSelectedMessageId(messageId);
         return Array.from(newSelection);
     });
-    restoreScroll();
   };
 
   const handleMessageClick = (messageId: string, isShift: boolean) => {
@@ -1221,6 +1224,8 @@ export function AdminDashboard() {
     </SidebarProvider>
   );
 }
+
+    
 
     
 
