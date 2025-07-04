@@ -849,18 +849,20 @@ export function AdminDashboard() {
                             )}
                           >
                              <div className={cn("flex items-start gap-3", message.role !== 'user' && 'flex-row-reverse')}>
-                                <div
-                                    className="self-center flex-shrink-0 opacity-0 group-hover:opacity-100 data-[selected=true]:opacity-100 transition-opacity cursor-pointer"
-                                    onClick={(e) => handleMessageSelection(message.id, e.shiftKey)}
-                                    data-selected={selectedMessages.includes(message.id)}
-                                >
-                                    <Checkbox
-                                        id={`select-msg-${message.id}`}
-                                        checked={selectedMessages.includes(message.id)}
-                                        readOnly
-                                        className="pointer-events-none"
-                                    />
-                                </div>
+                                {message.role !== 'user' && (
+                                    <div
+                                        className="self-center flex-shrink-0 opacity-0 group-hover:opacity-100 data-[selected=true]:opacity-100 transition-opacity cursor-pointer"
+                                        onClick={(e) => handleMessageSelection(message.id, e.shiftKey)}
+                                        data-selected={selectedMessages.includes(message.id)}
+                                    >
+                                        <Checkbox
+                                            id={`select-msg-${message.id}`}
+                                            checked={selectedMessages.includes(message.id)}
+                                            readOnly
+                                            className="pointer-events-none"
+                                        />
+                                    </div>
+                                )}
                                 <Avatar className="w-8 h-8">
                                     <AvatarImage
                                         src={
@@ -911,6 +913,20 @@ export function AdminDashboard() {
                                     </p>
                                     </div>
                                 </div>
+                                {message.role === 'user' && (
+                                    <div
+                                        className="self-center flex-shrink-0 opacity-0 group-hover:opacity-100 data-[selected=true]:opacity-100 transition-opacity cursor-pointer"
+                                        onClick={(e) => handleMessageSelection(message.id, e.shiftKey)}
+                                        data-selected={selectedMessages.includes(message.id)}
+                                    >
+                                        <Checkbox
+                                            id={`select-msg-${message.id}`}
+                                            checked={selectedMessages.includes(message.id)}
+                                            readOnly
+                                            className="pointer-events-none"
+                                        />
+                                    </div>
+                                )}
                              </div>
                           </div>
                         ))}
