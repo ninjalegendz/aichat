@@ -58,6 +58,7 @@ import {
   SidebarProvider,
   SidebarSeparator,
   SidebarTrigger,
+  useSidebar,
 } from "./ui/sidebar";
 import { Textarea } from "./ui/textarea";
 import { signOut } from "firebase/auth";
@@ -96,6 +97,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "./ui/alert-dialog";
+import { useSwipeable } from "react-swipeable";
 
 export function AdminDashboard() {
   const router = useRouter();
@@ -646,6 +648,30 @@ export function AdminDashboard() {
     </Card>
   );
 
+  const SwipeableMainContent = ({ children }: { children: React.ReactNode }) => {
+    const { setOpenMobile } = useSidebar();
+    const swipeHandlers = useSwipeable({
+      onSwipedRight: () => {
+        if (isMobile) setOpenMobile(true);
+      },
+      onSwipedLeft: () => {
+        if (isMobile && selectedTicket) setIsDetailsPanelOpen(true);
+      },
+      preventDefaultTouchmoveEvent: true,
+    });
+
+    return (
+      <div {...(isMobile ? swipeHandlers : {})} className="flex-1 flex flex-col">
+        {children}
+      </div>
+    );
+  };
+  
+  const detailsPanelSwipeHandlers = useSwipeable({
+    onSwipedRight: () => setIsDetailsPanelOpen(false),
+    preventDefaultTouchmoveEvent: true,
+  });
+
   return (
     <SidebarProvider>
        <audio ref={audioRef} src="https://files.catbox.moe/em648t.mp3" preload="auto" />
@@ -813,7 +839,7 @@ export function AdminDashboard() {
           </header>
 
           <div className="flex flex-1 overflow-hidden">
-            <div className="flex-1 flex flex-col">
+            <SwipeableMainContent>
               {selectedTicket ? (
                 <Card className="flex-1 flex flex-col h-full border-0 rounded-none">
                   <CardHeader className="hidden md:flex flex-row items-center justify-between border-b">
@@ -922,7 +948,7 @@ export function AdminDashboard() {
                                 
                                     <div className="flex items-center gap-2">
                                         {message.role !== 'user' &&
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 self-center md:opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => { e.stopPropagation(); setReplyingTo(message);}}>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 self-center opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => { e.stopPropagation(); setReplyingTo(message);}}>
                                                 <MessageSquareReply className="w-4 h-4"/>
                                             </Button>
                                         }
@@ -948,7 +974,7 @@ export function AdminDashboard() {
                                             </p>
                                         </div>
                                          {message.role === 'user' &&
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 self-center md:opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => { e.stopPropagation(); setReplyingTo(message);}}>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 self-center opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => { e.stopPropagation(); setReplyingTo(message);}}>
                                                 <MessageSquareReply className="w-4 h-4"/>
                                             </Button>
                                         }
@@ -1101,13 +1127,15 @@ export function AdminDashboard() {
                   </p>
                 </div>
               )}
-            </div>
+            </SwipeableMainContent>
 
             {selectedTicket && (isMobile ? (
               <Sheet open={isDetailsPanelOpen} onOpenChange={setIsDetailsPanelOpen}>
                 <SheetContent className="p-0 w-[85vw] sm:max-w-sm">
-                  <SheetTitle className="sr-only">Customer Details</SheetTitle>
-                  <DetailsPanel />
+                  <div {...detailsPanelSwipeHandlers} className="h-full">
+                    <SheetTitle className="sr-only">Customer Details</SheetTitle>
+                    <DetailsPanel />
+                  </div>
                 </SheetContent>
               </Sheet>
             ) : (

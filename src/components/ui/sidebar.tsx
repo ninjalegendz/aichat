@@ -20,6 +20,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { useSwipeable } from "react-swipeable"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
@@ -187,6 +188,11 @@ const Sidebar = React.forwardRef<
       }
     }, [isMobile, selectedTicketId, setOpenMobile])
 
+    const mobileSheetSwipeHandlers = useSwipeable({
+      onSwipedLeft: () => setOpenMobile(false),
+      preventDefaultTouchmoveEvent: true,
+    });
+
     if (collapsible === "none") {
       return (
         <div
@@ -217,7 +223,7 @@ const Sidebar = React.forwardRef<
             side={side}
           >
             <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
-            <div className="flex h-full w-full flex-col">{children}</div>
+            <div {...mobileSheetSwipeHandlers} className="flex h-full w-full flex-col">{children}</div>
           </SheetContent>
         </Sheet>
       )
