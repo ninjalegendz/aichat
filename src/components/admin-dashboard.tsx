@@ -1080,22 +1080,22 @@ export function AdminDashboard() {
                                             ticket.status === 'needs-attention' && 'animate-attention'
                                         )}
                                     >
-                                        <div className="flex justify-between w-full items-center">
-                                            <div className="flex items-center gap-3">
-                                            <Avatar className="w-9 h-9">
-                                                <AvatarImage src={ticket.customer.avatar} />
-                                                <AvatarFallback>
-                                                {ticket.customer.name.charAt(0)}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                            <div>
-                                                <div className="font-semibold truncate pr-2">
-                                                    {ticket.customer.name}
+                                        <div className="flex justify-between w-full items-center gap-4">
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <Avatar className="w-9 h-9 flex-shrink-0">
+                                                    <AvatarImage src={ticket.customer.avatar} />
+                                                    <AvatarFallback>
+                                                    {ticket.customer.name.charAt(0)}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                <div className="min-w-0">
+                                                    <div className="font-semibold truncate">
+                                                        {ticket.customer.name}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground/80 mt-1">
+                                                        {formatDistanceToNow(new Date(ticket.lastUpdate), { addSuffix: true })}
+                                                    </div>
                                                 </div>
-                                                <div className="text-xs text-muted-foreground/80 w-full mt-1">
-                                                {formatDistanceToNow(new Date(ticket.lastUpdate), { addSuffix: true })}
-                                                </div>
-                                            </div>
                                             </div>
                                             <Badge
                                                 variant={
@@ -1153,3 +1153,5 @@ export function AdminDashboard() {
     </SidebarProvider>
   );
 }
+
+    
