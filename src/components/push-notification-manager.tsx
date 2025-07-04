@@ -1,9 +1,8 @@
-
 'use client';
 
 import { useEffect } from 'react';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
-import { app, auth } from '@/lib/firebase';
+import { app } from '@/lib/firebase';
 import { useUser } from '@/hooks/use-user';
 import { saveFcmToken } from '@/lib/firestore-service';
 
@@ -19,57 +18,39 @@ export function PushNotificationManager() {
 
     const initMessaging = async () => {
       try {
+        // We need to wait for the service worker to be ready.
+        const registration = await navigator.serviceWorker.ready;
         const messaging = getMessaging(app);
 
-        // --- 1. PASTE YOUR VAPID KEY HERE ---
-        // Replace the placeholder string with the "Web Push certificate" key
-        // you generated in your Firebase project settings.
-        const VAPID_KEY = 'YOUR_VAPID_KEY_HERE';
+        // --- 1. VAPID KEY IS ADDED HERE ---
+        const VAPID_KEY = 'BFCIcNgw72v48h8taIQgSA22zfOUdetSjnNqPpGMLQpuCApVeERFr2vwAQh4xyledw6fEiHrk29ocWwUY6560Y0';
 
-        const currentToken = await getToken(messaging, { vapidKey: VAPID_KEY });
+        const currentToken = await getToken(messaging, { 
+            vapidKey: VAPID_KEY,
+            serviceWorkerRegistration: registration,
+        });
 
         if (currentToken) {
           // Save the token to Firestore so the backend can use it.
-          // This function is "idempotent" - it won't create duplicate tokens.
           await saveFcmToken(user.uid, currentToken);
         } else {
           console.log('No registration token available. Request permission to generate one.');
-          // You might want to show a UI element to the user to request permission.
-          // For now, we'll log it.
         }
 
         // Also handle incoming messages while the app is in the foreground
         onMessage(messaging, (payload) => {
-          console.log('Message received. ', payload);
+          console.log('Foreground message received.', payload);
           // You could show an in-app toast notification here.
-          // For simplicity, we just log it.
         });
 
       } catch (err) {
-        console.error('An error occurred while retrieving token. ', err);
+        console.error('An error occurred while retrieving token for push notifications.', err);
       }
     };
 
-    // We need to wait for the service worker to be ready.
-    navigator.serviceWorker.ready.then(() => {
-        initMessaging();
-    });
-
+    initMessaging();
+      
   }, [user]);
 
   return null; // This component does not render anything.
-}
-
-// A simple hook to get the current Firebase user.
-function useUser() {
-    const [user, setUser] = useState(auth.currentUser);
-
-    useEffect(() => {
-        const unsubscribe = auth.onAuthStateChanged((user) => {
-            setUser(user);
-        });
-        return () => unsubscribe();
-    }, []);
-
-    return user;
 }
