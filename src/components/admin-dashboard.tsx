@@ -843,11 +843,11 @@ export function AdminDashboard() {
                         {messages.map((message) => (
                           <div
                             key={message.id}
-                            className="flex w-full items-start gap-3 group select-none"
+                            className="flex w-full items-start gap-3 group"
                             onClick={(e) => handleMessageSelection(message.id, e.shiftKey)}
                           >
                              <div className={cn(
-                                "flex-1 flex items-start gap-3",
+                                "flex flex-1 items-start gap-3 select-none",
                                 message.role === 'user' ? 'justify-start' : 'justify-end'
                             )}>
                                 <div
@@ -922,18 +922,47 @@ export function AdminDashboard() {
                       </div>
                     </ScrollArea>
                     {replyingTo && <ReplyPreview message={replyingTo} onCancel={() => setReplyingTo(null)} />}
-                    <div className="p-4 border-t bg-background/80 relative">
-                        <Popover open={isQuickReplyOpen} onOpenChange={setIsQuickReplyOpen}>
+                    <div className="p-4 border-t bg-background/80">
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          handleAgentSendMessage();
+                        }}
+                        className="flex items-start gap-2 w-full"
+                      >
+                         <Popover open={isQuickReplyOpen} onOpenChange={setIsQuickReplyOpen}>
                             <PopoverTrigger asChild>
-                                <div />
+                               <Textarea
+                                  value={agentInput}
+                                  onChange={handleAgentInputChange}
+                                  placeholder="Type your response as an agent... (use '/' for quick replies)"
+                                  className="flex-1 resize-none"
+                                  rows={1}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter" && !e.shiftKey) {
+                                      e.preventDefault();
+                                      handleAgentSendMessage();
+                                    }
+                                  }}
+                                  disabled={selectedTicket.status === "closed" || isSending}
+                                />
                             </PopoverTrigger>
-                            <PopoverContent className="w-[calc(100%-2rem)] p-1 mb-2 max-h-60 overflow-y-auto">
+                            <PopoverContent 
+                                onOpenAutoFocus={(e) => e.preventDefault()}
+                                className="w-[--radix-popover-trigger-width] p-1 max-h-60 overflow-y-auto"
+                                side="top"
+                                align="start"
+                                sideOffset={5}
+                            >
                                 {filteredQuickReplies.length > 0 ? (
                                     filteredQuickReplies.map(reply => (
                                         <div 
                                             key={reply.id} 
                                             className="p-2 hover:bg-muted rounded-md cursor-pointer text-sm"
-                                            onClick={() => handleSelectQuickReply(reply.text)}
+                                            onMouseDown={(e) => {
+                                                e.preventDefault();
+                                                handleSelectQuickReply(reply.text)
+                                            }}
                                         >
                                             {reply.text}
                                         </div>
@@ -943,27 +972,7 @@ export function AdminDashboard() {
                                 )}
                             </PopoverContent>
                         </Popover>
-                      <form
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          handleAgentSendMessage();
-                        }}
-                        className="flex items-center gap-2 w-full"
-                      >
-                        <Textarea
-                          value={agentInput}
-                          onChange={handleAgentInputChange}
-                          placeholder="Type your response as an agent... (use '/' for quick replies)"
-                          className="flex-1 resize-none"
-                          rows={1}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && !e.shiftKey) {
-                              e.preventDefault();
-                              handleAgentSendMessage();
-                            }
-                          }}
-                          disabled={selectedTicket.status === "closed" || isSending}
-                        />
+                        
                         <Button
                           type="submit"
                           size="icon"
@@ -1002,5 +1011,3 @@ export function AdminDashboard() {
     </SidebarProvider>
   );
 }
-
-    
