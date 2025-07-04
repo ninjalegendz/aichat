@@ -1,7 +1,7 @@
 
 "use client";
 
-import { summarizeAndSaveTicket, getSettingsAction } from "@/app/actions";
+import { summarizeAndSaveTicket, getSettingsAction, deleteMessagesAction } from "@/app/actions";
 import type { Message, Settings, Ticket } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { linkify } from "@/lib/linkify";
@@ -28,6 +28,7 @@ import {
   UserCheck,
   X,
   MessageSquareReply,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -83,6 +84,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
+import { Checkbox } from "./ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "./ui/alert-dialog";
 
 export function AdminDashboard() {
   const router = useRouter();
@@ -113,6 +126,10 @@ export function AdminDashboard() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const prevTicketsRef = useRef<Ticket[]>([]);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+
+  // Message selection state
+  const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
+  const [isDeleting, startDeleteTransition] = useTransition();
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const selectedTicketId = searchParams.get("ticketId");
@@ -219,6 +236,7 @@ export function AdminDashboard() {
       setSelectedTicket(ticketData);
       setAgentInput("");
       setReplyingTo(null);
+      setSelectedMessages([]); // Clear selection when ticket changes
 
       if (ticketData) {
         setCustomerName(ticketData.customer.name);
@@ -263,24 +281,21 @@ export function AdminDashboard() {
     if (!selectedTicket || !textToSend) return;
 
     startSendingTransition(async () => {
-      const replyInfo = replyingTo
-        ? {
-            messageId: replyingTo.id,
-            content: replyingTo.content,
-            role: replyingTo.role,
-          }
-        : undefined;
-      setReplyingTo(null);
-      setAgentInput('');
-
       const messagePayload: Omit<Message, 'id' | 'createdAt'> = {
         role: "agent",
         content: textToSend,
       };
 
-      if (replyInfo) {
-        messagePayload.replyTo = replyInfo;
+      if (replyingTo) {
+        messagePayload.replyTo = {
+          messageId: replyingTo.id,
+          content: replyingTo.content,
+          role: replyingTo.role,
+        };
       }
+
+      setReplyingTo(null);
+      setAgentInput('');
 
       await addMessage(selectedTicket.id, messagePayload);
       await updateTicket(selectedTicket.id, { status: "agent" });
@@ -410,6 +425,35 @@ export function AdminDashboard() {
     toast({
         title: "Transcript Downloaded",
         description: `The chat transcript has been saved as a .${fileExtension} file.`,
+    });
+  };
+
+  const handleToggleMessageSelection = (messageId: string) => {
+    setSelectedMessages((prev) =>
+      prev.includes(messageId)
+        ? prev.filter((id) => id !== messageId)
+        : [...prev, messageId]
+    );
+  };
+
+  const handleDeleteSelectedMessages = () => {
+    if (!selectedTicket || selectedMessages.length === 0) return;
+    startDeleteTransition(async () => {
+      try {
+        await deleteMessagesAction(selectedTicket.id, selectedMessages);
+        setSelectedMessages([]);
+        toast({
+          title: "Messages Deleted",
+          description: "The selected messages have been removed.",
+        });
+      } catch (error) {
+        console.error("Failed to delete messages:", error);
+        toast({
+          variant: "destructive",
+          title: "Deletion Failed",
+          description: "Could not remove the selected messages.",
+        });
+      }
     });
   };
 
@@ -705,6 +749,30 @@ export function AdminDashboard() {
                       </CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
+                       {selectedMessages.length > 0 && (
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="destructive" size="sm" disabled={isDeleting}>
+                                    {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                                    Delete ({selectedMessages.length})
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        This action cannot be undone. This will permanently delete the selected {selectedMessages.length === 1 ? 'message' : 'messages'}.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleDeleteSelectedMessages}>
+                                        Delete
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                      )}
                       <Button
                           size="icon"
                           variant="ghost"
@@ -730,11 +798,15 @@ export function AdminDashboard() {
                             key={message.id}
                             className={cn(
                               "flex items-start gap-3 group",
-                              message.role !== "user"
-                                ? "flex-row-reverse"
-                                : ""
+                              message.role === "user" ? "" : "flex-row-reverse"
                             )}
                           >
+                             <Checkbox
+                                id={`select-msg-${message.id}`}
+                                checked={selectedMessages.includes(message.id)}
+                                onCheckedChange={() => handleToggleMessageSelection(message.id)}
+                                className="opacity-0 group-hover:opacity-100 data-[state=checked]:opacity-100 transition-opacity self-center flex-shrink-0"
+                            />
                             <Avatar className="w-8 h-8">
                                 <AvatarImage
                                     src={

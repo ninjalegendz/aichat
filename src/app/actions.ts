@@ -3,7 +3,7 @@
 
 import { initialResponse } from "@/ai/flows/initial-response-flow";
 import { summarizeTicket } from "@/ai/flows/summarize-ticket-flow";
-import { getMessages, updateTicket, getSettings, updateSettings, addMessage } from "@/lib/firestore-service";
+import { getMessages, updateTicket, getSettings, updateSettings, addMessage, deleteMessages } from "@/lib/firestore-service";
 import type { Settings } from "@/lib/types";
 
 export async function getAiResponse(query: string, chatHistory: string, ticketId: string) {
@@ -52,4 +52,8 @@ export async function getSettingsAction(): Promise<Settings> {
 
 export async function updateSettingsAction(data: Partial<Settings>): Promise<void> {
     await updateSettings(data);
+}
+
+export async function deleteMessagesAction(ticketId: string, messageIds: string[]): Promise<void> {
+    await deleteMessages(ticketId, messageIds);
 }

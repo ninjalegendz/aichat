@@ -12,6 +12,8 @@ import {
   serverTimestamp,
   Timestamp,
   FirestoreDataConverter,
+  deleteDoc,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type { Ticket, Message, Settings } from './types';
@@ -80,6 +82,15 @@ export async function addMessage(ticketId: string, message: Omit<Message, 'id' |
     await updateDoc(ticketRef, {
         lastUpdate: serverTimestamp(),
     });
+}
+
+export async function deleteMessages(ticketId: string, messageIds: string[]): Promise<void> {
+    const batch = writeBatch(db);
+    messageIds.forEach(messageId => {
+        const messageRef = doc(db, `tickets/${ticketId}/messages`, messageId);
+        batch.delete(messageRef);
+    });
+    await batch.commit();
 }
 
 export async function updateTicket(ticketId: string, data: Partial<Omit<Ticket, 'id' | 'messages'>>): Promise<void> {
