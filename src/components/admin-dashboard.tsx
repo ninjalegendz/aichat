@@ -720,7 +720,7 @@ export function AdminDashboard() {
                             className={cn(
                               "flex items-start gap-3 group",
                               message.role === "user"
-                                ? "justify-end flex-row-reverse"
+                                ? "flex-row-reverse"
                                 : "justify-start"
                             )}
                           >
@@ -859,5 +859,3 @@ export function AdminDashboard() {
     </SidebarProvider>
   );
 }
-
-    

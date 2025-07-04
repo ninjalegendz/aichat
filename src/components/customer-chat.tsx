@@ -227,7 +227,7 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
                   className={cn(
                     "flex items-start gap-3 group",
                     message.role === "user"
-                      ? "justify-end flex-row-reverse"
+                      ? "flex-row-reverse"
                       : "justify-start"
                   )}
                 >
