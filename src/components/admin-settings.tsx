@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { hexToHslString } from "@/lib/utils";
 import type { Settings } from "@/lib/types";
 import { ArrowLeft, BrainCog, Bot, Loader2, Palette, Save, User, MessageCircle, Plus, Trash2, Send } from "lucide-react";
 import Link from "next/link";
@@ -45,13 +44,6 @@ export function AdminSettings() {
   ) => {
     const { name, value } = e.target;
     setSettings((prev) => ({ ...prev, [name]: value }));
-
-    if (name === 'primaryColor' || name === 'accentColor' || name === 'backgroundColor') {
-        const propertyName = name === 'primaryColor' ? '--primary' : name === 'accentColor' ? '--accent' : '--background';
-        if (value) {
-            document.documentElement.style.setProperty(propertyName, hexToHslString(value));
-        }
-    }
   };
   
   const handleAddQuickReply = () => {
@@ -123,7 +115,7 @@ export function AdminSettings() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-            <Accordion type="multiple" defaultValue={['item-1', 'item-2', 'item-3']} className="w-full">
+            <Accordion type="multiple" defaultValue={[]} className="w-full">
                 <AccordionItem value="item-1">
                     <AccordionTrigger className="text-lg font-medium">
                         <div className="flex items-center gap-3"><User className="w-5 h-5"/> AI Profile</div>
