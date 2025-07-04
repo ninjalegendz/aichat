@@ -24,8 +24,12 @@ const InitialResponseInputSchema = z.object({
 export type InitialResponseInput = z.infer<typeof InitialResponseInputSchema>;
 
 const InitialResponseOutputSchema = z.object({
-  response: z.string().describe('The AI-generated initial response.'),
-  needsAttention: z.boolean().describe('Set to true if a human agent is required to intervene or if you cannot answer the user\'s query.'),
+  response: z.string().describe('The AI-generated initial response to the user.'),
+  needsAttention: z
+    .boolean()
+    .describe(
+      "Set to true ONLY if the user's query cannot be answered using the Knowledge Base, if the user explicitly asks for a human, or if the user is expressing significant frustration. Otherwise, you must set this to false and answer the query yourself."
+    ),
 });
 
 export type InitialResponseOutput = z.infer<typeof InitialResponseOutputSchema>;
@@ -43,7 +47,19 @@ const initialResponseFlow = ai.defineFlow(
   async (input) => {
     const {output} = await ai.generate({
         system: input.systemPrompt,
-        prompt: `Ticket ID: ${input.ticketId}\n\nKnowledge Base:\n${input.knowledgeBase}\n\nChat History:\n${input.chatHistory}\n\nNew User Message: ${input.currentQuery}`,
+        prompt: `You MUST follow these instructions to determine if the user needs a human agent. The user needs a human agent ONLY if their query cannot be answered with the Knowledge Base, if they ask for a human, or if they are very frustrated.
+        
+Analyze the user's message and the conversation history. First, try to answer the user's question using the knowledge base. Only if you cannot find an answer should you escalate.
+
+Ticket ID: ${input.ticketId}
+
+Knowledge Base:
+${input.knowledgeBase}
+
+Chat History:
+${input.chatHistory}
+
+New User Message: ${input.currentQuery}`,
         output: {
             schema: InitialResponseOutputSchema,
         },
