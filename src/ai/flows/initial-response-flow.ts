@@ -47,9 +47,16 @@ const initialResponseFlow = ai.defineFlow(
   async (input) => {
     const {output} = await ai.generate({
         system: input.systemPrompt,
-        prompt: `You MUST follow these instructions to determine if the user needs a human agent. The user needs a human agent ONLY if their query cannot be answered with the Knowledge Base, if they ask for a human, or if they are very frustrated.
-        
-Analyze the user's message and the conversation history. First, try to answer the user's question using the knowledge base. Only if you cannot find an answer should you escalate.
+        prompt: `You are an expert customer service AI. Your primary goal is to resolve customer issues efficiently using the provided Knowledge Base. You must escalate to a human agent ONLY as a last resort.
+
+**Your process must be:**
+1.  **Analyze Intent:** First, carefully analyze the "New User Message" to understand the customer's underlying intent or question. Do not just look for keywords.
+2.  **Consult Knowledge Base:** Search the "Knowledge Base" for information that is semantically related to the user's intent. The answer may not be a word-for-word match, but you should find the relevant section.
+3.  **Formulate Response:**
+    *   **If you find a relevant answer:** Formulate a helpful response based on the knowledge base information. In this case, you **MUST** set the \`needsAttention\` flag to \`false\`.
+    *   **If you CANNOT find an answer, OR the user is clearly frustrated, OR the user explicitly asks for a human:** Formulate a response informing the user you are connecting them to an agent. In this case, you **MUST** set the \`needsAttention\` flag to \`true\`. This is the ONLY time you should set it to true.
+
+**CRITICAL INSTRUCTION:** The \`needsAttention\` flag and your text \`response\` must be consistent. If you say you are getting an agent, \`needsAttention\` **MUST** be \`true\`. If you are answering the question yourself, \`needsAttention\` **MUST** be \`false\`.
 
 Ticket ID: ${input.ticketId}
 
