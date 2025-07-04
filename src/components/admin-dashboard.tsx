@@ -750,18 +750,63 @@ export function AdminDashboard() {
         <div className="flex h-screen flex-col">
           <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4 md:hidden">
             <SidebarTrigger />
-            <div className="flex-1 truncate">
-              {selectedTicket ? (
-                <h1 className="font-semibold">{selectedTicket.customer.name}</h1>
-              ) : (
-                <h1 className="font-semibold">Dashboard</h1>
-              )}
-            </div>
-            {selectedTicket && (
-              <Button variant="ghost" size="icon" onClick={() => setIsDetailsPanelOpen(true)}>
-                <Contact className="h-5 w-5" />
-                <span className="sr-only">Customer Details</span>
-              </Button>
+             {selectedMessages.length > 0 && selectedTicket ? (
+               <div className="flex w-full items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <Checkbox
+                        id="select-all-mobile"
+                        checked={messages.length > 0 && selectedMessages.length === messages.length}
+                        onCheckedChange={(checked) => {
+                            if (checked) {
+                                setSelectedMessages(messages.map(m => m.id));
+                            } else {
+                                setSelectedMessages([]);
+                                setLastSelectedMessageId(null);
+                            }
+                        }}
+                    />
+                    <Label htmlFor="select-all-mobile" className="text-sm font-medium cursor-pointer">
+                        {selectedMessages.length} selected
+                    </Label>
+                </div>
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="icon" className="h-8 w-8" disabled={isDeleting}>
+                            {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete the selected {selectedMessages.length === 1 ? 'message' : 'messages'}.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleDeleteSelectedMessages}>
+                                Delete
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+               </div>
+            ) : (
+              <>
+                <div className="flex-1 truncate">
+                  {selectedTicket ? (
+                    <h1 className="font-semibold">{selectedTicket.customer.name}</h1>
+                  ) : (
+                    <h1 className="font-semibold">Dashboard</h1>
+                  )}
+                </div>
+                {selectedTicket && (
+                  <Button variant="ghost" size="icon" onClick={() => setIsDetailsPanelOpen(true)}>
+                    <Contact className="h-5 w-5" />
+                    <span className="sr-only">Customer Details</span>
+                  </Button>
+                )}
+              </>
             )}
           </header>
 
@@ -793,7 +838,7 @@ export function AdminDashboard() {
                                     }}
                                 />
                                 <Label htmlFor="select-all" className="text-sm font-medium leading-none cursor-pointer">
-                                    Select All
+                                    {selectedMessages.length} / {messages.length}
                                 </Label>
                             </div>
                             <AlertDialog>
@@ -843,11 +888,11 @@ export function AdminDashboard() {
                         {messages.map((message) => (
                           <div
                             key={message.id}
-                            className="flex w-full items-start gap-3 group"
+                            className="flex w-full items-start gap-3 group select-none"
                             onClick={(e) => handleMessageSelection(message.id, e.shiftKey)}
                           >
                              <div className={cn(
-                                "flex flex-1 items-start gap-3 select-none",
+                                "flex flex-1 items-start gap-3",
                                 message.role === 'user' ? 'justify-start' : 'justify-end'
                             )}>
                                 <div
