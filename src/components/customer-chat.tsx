@@ -4,7 +4,7 @@
 import type { Message, Settings, Ticket } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { linkify } from "@/lib/linkify";
-import { ArrowUp, BrainCircuit, Loader2, MessageSquareReply, Paperclip, X } from "lucide-react";
+import { ArrowUp, BrainCircuit, Loader2, MessageSquareReply, X } from "lucide-react";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
@@ -24,13 +24,6 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import Image from "next/image";
-import { saveFile } from "@/lib/indexed-db";
-import { useToast } from "@/hooks/use-toast";
-import { FilePreviewInput } from "./file-preview-input";
-import { AttachmentPreview } from "./attachment-preview";
-
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
 
 const TypingIndicator = () => (
   <div className="flex items-center space-x-2">
@@ -58,11 +51,8 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
   const [settings, setSettings] = useState<Partial<Settings>>({});
   const [showAgentConnected, setShowAgentConnected] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const { toast } = useToast();
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const hasScrolledRef = useRef(false);
 
   const scrollToBottom = (behavior: "smooth" | "auto" = "smooth") => {
@@ -143,31 +133,9 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
 
   const handleSendMessage = async () => {
     const textToSend = input.trim();
-    if (!ticket || (!textToSend && !selectedFile)) return;
+    if (!ticket || !textToSend) return;
 
     startSendingTransition(async () => {
-      let attachment;
-      if (selectedFile) {
-        try {
-          const fileId = await saveFile(selectedFile);
-          attachment = {
-            fileId,
-            fileName: selectedFile.name,
-            fileType: selectedFile.type,
-            fileSize: selectedFile.size,
-          };
-          setSelectedFile(null);
-        } catch (error) {
-          console.error("Failed to save file:", error);
-          toast({
-            variant: "destructive",
-            title: "File Upload Failed",
-            description: "Could not save the attachment.",
-          });
-          return;
-        }
-      }
-
       setInput('');
       const replyInfo = replyingTo ? {
         messageId: replyingTo.id,
@@ -175,8 +143,13 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
         role: replyingTo.role,
       } : undefined;
       setReplyingTo(null);
-
-      await addMessage(ticketId, { role: 'user', content: textToSend, replyTo: replyInfo, attachment });
+      
+      const messagePayload: Omit<Message, 'id' | 'createdAt'> = { role: 'user', content: textToSend };
+      if (replyInfo) {
+        messagePayload.replyTo = replyInfo;
+      }
+      
+      await addMessage(ticketId, messagePayload);
       
       let wasClosed = false;
       if (ticket.status === 'closed') {
@@ -198,30 +171,6 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
         setIsAiTyping(false);
       }
     });
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > MAX_FILE_SIZE) {
-        toast({
-          variant: 'destructive',
-          title: 'File too large',
-          description: `The maximum file size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`,
-        });
-        return;
-      }
-      if (!ALLOWED_FILE_TYPES.includes(file.type)) {
-        toast({
-          variant: 'destructive',
-          title: 'Invalid file type',
-          description: 'Please select an image (JPG, PNG, GIF) or PDF file.',
-        });
-        return;
-      }
-      setSelectedFile(file);
-    }
-    if(e.target) e.target.value = '';
   };
 
   const ReplyPreview = ({ message, onCancel }: { message: Message, onCancel: () => void }) => (
@@ -339,16 +288,6 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
                           settings={settings}
                         />
                       )}
-                      {message.attachment && (
-                        <div className={cn(message.content && 'mb-2')}>
-                          <AttachmentPreview
-                            fileId={message.attachment.fileId}
-                            fileName={message.attachment.fileName}
-                            fileType={message.attachment.fileType}
-                            context="message"
-                          />
-                        </div>
-                      )}
                       {message.content && <div
                         className="text-sm prose"
                         style={{ whiteSpace: "pre-wrap" }}
@@ -388,7 +327,6 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
           </ScrollArea>
            {replyingTo && <ReplyPreview message={replyingTo} onCancel={() => setReplyingTo(null)} />}
           <div className="p-4 border-t bg-background/80">
-            {selectedFile && <FilePreviewInput file={selectedFile} onRemove={() => setSelectedFile(null)} />}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -396,22 +334,6 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
               }}
               className="flex items-center gap-2"
             >
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileSelect}
-                className="hidden"
-                accept={ALLOWED_FILE_TYPES.join(',')}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isSending}
-              >
-                <Paperclip className="w-5 h-5" />
-              </Button>
               <Textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -429,7 +351,7 @@ export function CustomerChat({ ticketId }: { ticketId: string }) {
               <Button
                 type="submit"
                 size="icon"
-                disabled={(!input.trim() && !selectedFile) || isSending}
+                disabled={!input.trim() || isSending}
               >
                 {isSending ? <Loader2 className="w-5 h-5 animate-spin"/> : <ArrowUp className="w-5 h-5" />}
               </Button>

@@ -9,12 +9,6 @@ export type Message = {
     messageId: string;
     content: string;
     role: 'user' | 'assistant' | 'agent';
-  },
-  attachment?: {
-    fileId: string;
-    fileName: string;
-    fileType: string;
-    fileSize: number;
   };
 };
 

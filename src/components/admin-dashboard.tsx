@@ -28,8 +28,6 @@ import {
   UserCheck,
   X,
   MessageSquareReply,
-  Paperclip,
-  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -85,13 +83,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import { saveFile } from "@/lib/indexed-db";
-import { AttachmentPreview } from "./attachment-preview";
-import { FilePreviewInput } from "./file-preview-input";
-
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
-
 
 export function AdminDashboard() {
   const router = useRouter();
@@ -108,7 +99,6 @@ export function AdminDashboard() {
   const [settings, setSettings] = useState<Partial<Settings>>({});
   const [isSending, startSendingTransition] = useTransition();
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   // Quick reply state
   const [quickReplyQuery, setQuickReplyQuery] = useState("");
@@ -121,7 +111,6 @@ export function AdminDashboard() {
   const [isSaving, setIsSaving] = useState(false);
   
   const audioRef = useRef<HTMLAudioElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const prevTicketsRef = useRef<Ticket[]>([]);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
@@ -230,8 +219,6 @@ export function AdminDashboard() {
       setSelectedTicket(ticketData);
       setAgentInput("");
       setReplyingTo(null);
-      setSelectedFile(null);
-
 
       if (ticketData) {
         setCustomerName(ticketData.customer.name);
@@ -273,31 +260,9 @@ export function AdminDashboard() {
 
   const handleAgentSendMessage = async () => {
     const textToSend = agentInput.trim();
-    if (!selectedTicket || (!textToSend && !selectedFile)) return;
+    if (!selectedTicket || !textToSend) return;
 
     startSendingTransition(async () => {
-      let attachment;
-      if (selectedFile) {
-        try {
-          const fileId = await saveFile(selectedFile);
-          attachment = {
-            fileId,
-            fileName: selectedFile.name,
-            fileType: selectedFile.type,
-            fileSize: selectedFile.size,
-          };
-          setSelectedFile(null);
-        } catch (error) {
-          console.error("Failed to save file:", error);
-          toast({
-            variant: "destructive",
-            title: "File Upload Failed",
-            description: "Could not save the attachment.",
-          });
-          return;
-        }
-      }
-
       const replyInfo = replyingTo
         ? {
             messageId: replyingTo.id,
@@ -308,12 +273,16 @@ export function AdminDashboard() {
       setReplyingTo(null);
       setAgentInput('');
 
-      await addMessage(selectedTicket.id, {
+      const messagePayload: Omit<Message, 'id' | 'createdAt'> = {
         role: "agent",
         content: textToSend,
-        replyTo: replyInfo,
-        attachment,
-      });
+      };
+
+      if (replyInfo) {
+        messagePayload.replyTo = replyInfo;
+      }
+
+      await addMessage(selectedTicket.id, messagePayload);
       await updateTicket(selectedTicket.id, { status: "agent" });
     });
   };
@@ -418,16 +387,12 @@ export function AdminDashboard() {
             if (msg.replyTo) {
                 replyText = ` (replying to ${msg.replyTo.role}: "${msg.replyTo.content.substring(0, 30)}...")`;
             }
-            let attachmentText = '';
-            if (msg.attachment) {
-                attachmentText = ` [Attachment: ${msg.attachment.fileName}]`;
-            }
-            return `[${timestamp}] ${role}${replyText}:\n${msg.content}${attachmentText}\n`;
+            return `[${timestamp}] ${role}${replyText}:\n${msg.content}\n`;
         }).join('\n----------------------------------------\n');
         mimeType = 'text/plain';
         fileExtension = 'txt';
     } else if (downloadFormat === 'json') {
-        content = JSON.stringify(messages.map(({attachment, ...rest}) => ({...rest, attachment: attachment ? {fileName: attachment.fileName, fileType: attachment.fileType} : undefined})), null, 2);
+        content = JSON.stringify(messages, null, 2);
         mimeType = 'application/json';
         fileExtension = 'json';
     }
@@ -446,31 +411,6 @@ export function AdminDashboard() {
         title: "Transcript Downloaded",
         description: `The chat transcript has been saved as a .${fileExtension} file.`,
     });
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > MAX_FILE_SIZE) {
-        toast({
-          variant: 'destructive',
-          title: 'File too large',
-          description: `The maximum file size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`,
-        });
-        return;
-      }
-      if (!ALLOWED_FILE_TYPES.includes(file.type)) {
-        toast({
-          variant: 'destructive',
-          title: 'Invalid file type',
-          description: 'Please select an image (JPG, PNG, GIF) or PDF file.',
-        });
-        return;
-      }
-      setSelectedFile(file);
-    }
-    // Reset file input value to allow selecting the same file again
-    if(e.target) e.target.value = '';
   };
 
   const filteredQuickReplies = settings.quickReplies?.filter(reply => 
@@ -832,16 +772,6 @@ export function AdminDashboard() {
                                 )}
                                 >
                                 {message.replyTo && <RepliedMessage message={message.replyTo} settings={settings} />}
-                                {message.attachment && (
-                                  <div className={cn(message.content && 'mb-2')}>
-                                    <AttachmentPreview
-                                      fileId={message.attachment.fileId}
-                                      fileName={message.attachment.fileName}
-                                      fileType={message.attachment.fileType}
-                                      context="message"
-                                    />
-                                  </div>
-                                )}
                                 {message.content && <div className="text-sm prose" style={{ whiteSpace: 'pre-wrap' }}>{linkify(message.content)}</div>}
                                 <p
                                     className={cn(
@@ -861,7 +791,6 @@ export function AdminDashboard() {
                     </ScrollArea>
                     {replyingTo && <ReplyPreview message={replyingTo} onCancel={() => setReplyingTo(null)} />}
                     <div className="p-4 border-t bg-background/80 relative">
-                        {selectedFile && <FilePreviewInput file={selectedFile} onRemove={() => setSelectedFile(null)} />}
                         <Popover open={isQuickReplyOpen} onOpenChange={setIsQuickReplyOpen}>
                             <PopoverTrigger asChild>
                                 <div />
@@ -889,22 +818,6 @@ export function AdminDashboard() {
                         }}
                         className="flex items-center gap-2 w-full"
                       >
-                         <input
-                            type="file"
-                            ref={fileInputRef}
-                            onChange={handleFileSelect}
-                            className="hidden"
-                            accept={ALLOWED_FILE_TYPES.join(',')}
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={selectedTicket.status === "closed" || isSending}
-                          >
-                            <Paperclip className="w-5 h-5" />
-                          </Button>
                         <Textarea
                           value={agentInput}
                           onChange={handleAgentInputChange}
@@ -923,7 +836,7 @@ export function AdminDashboard() {
                           type="submit"
                           size="icon"
                           disabled={
-                            (!agentInput.trim() && !selectedFile) || selectedTicket.status === "closed" || isSending
+                            !agentInput.trim() || selectedTicket.status === "closed" || isSending
                           }
                         >
                           {isSending ? <Loader2 className="w-5 h-5 animate-spin"/> : <Send className="w-5 h-5" />}
