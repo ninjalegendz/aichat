@@ -136,10 +136,27 @@ export function AdminDashboard() {
   const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
   const [lastSelectedMessageId, setLastSelectedMessageId] = useState<string | null>(null);
   const [isDeleting, startDeleteTransition] = useTransition();
+  const [isSelectionModeActive, setIsSelectionModeActive] = useState(false);
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const selectedTicketId = searchParams.get("ticketId");
   const hasScrolledRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    // On mobile, exit selection mode when no messages are selected
+    if (isMobile && selectedMessages.length === 0) {
+      setIsSelectionModeActive(false);
+    }
+  }, [selectedMessages, isMobile]);
 
   const scrollToBottom = (behavior: "smooth" | "auto" = "smooth") => {
     const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
@@ -247,6 +264,7 @@ export function AdminDashboard() {
       setAgentInput("");
       setReplyingTo(null);
       setSelectedMessages([]);
+      setIsSelectionModeActive(false);
       setLastSelectedMessageId(null);
 
       if (ticketData) {
@@ -440,7 +458,7 @@ export function AdminDashboard() {
   };
 
   const handleMessageSelection = (messageId: string, isShiftClick: boolean) => {
-    if (isShiftClick && lastSelectedMessageId) {
+    if (isShiftClick && lastSelectedMessageId && !isMobile) {
         const lastIndex = messages.findIndex(m => m.id === lastSelectedMessageId);
         const currentIndex = messages.findIndex(m => m.id === messageId);
         
@@ -471,6 +489,34 @@ export function AdminDashboard() {
         return Array.from(newSelection);
     });
 };
+
+  const handleMessageClick = (messageId: string, isShift: boolean) => {
+    if (isMobile) {
+      if (isSelectionModeActive) {
+        handleMessageSelection(messageId, false);
+      }
+    } else {
+      handleMessageSelection(messageId, isShift);
+    }
+  };
+  
+  const handleTouchStart = (messageId: string) => {
+    if (!isMobile) return;
+    longPressTimer.current = setTimeout(() => {
+      if (!isSelectionModeActive) {
+        setIsSelectionModeActive(true);
+      }
+      handleMessageSelection(messageId, false);
+      longPressTimer.current = null;
+    }, 500);
+  };
+
+  const handleTouchMoveOrEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
 
   const handleDeleteSelectedMessages = () => {
     if (!selectedTicket || selectedMessages.length === 0) return;
@@ -927,7 +973,10 @@ export function AdminDashboard() {
                           <div
                             key={message.id}
                             className="flex items-start gap-3 group select-none"
-                            onClick={(e) => handleMessageSelection(message.id, e.shiftKey)}
+                            onClick={(e) => handleMessageClick(message.id, e.shiftKey)}
+                            onTouchStart={() => handleTouchStart(message.id)}
+                            onTouchEnd={handleTouchMoveOrEnd}
+                            onTouchMove={handleTouchMoveOrEnd}
                           >
                              <div className={cn(
                                 "flex flex-1 items-start gap-3",
@@ -960,7 +1009,7 @@ export function AdminDashboard() {
                                         "flex items-center gap-2",
                                         message.role === 'user' && 'flex-row-reverse'
                                     )}>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 self-center opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => { e.stopPropagation(); setReplyingTo(message);}}>
+                                        <Button variant="ghost" size="icon" className={cn("h-7 w-7 self-center transition-opacity", isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')} onClick={(e) => { e.stopPropagation(); setReplyingTo(message);}}>
                                             <MessageSquareReply className="w-4 h-4"/>
                                         </Button>
                                         <div
@@ -987,8 +1036,14 @@ export function AdminDashboard() {
                                     </div>
                                 </div>
                             </div>
-                            <div
-                                className="self-center flex-shrink-0 opacity-0 group-hover:opacity-100 data-[selected=true]:opacity-100 transition-opacity cursor-pointer"
+                             <div
+                                className={cn(
+                                    "self-center flex-shrink-0 transition-opacity",
+                                    isMobile
+                                    ? isSelectionModeActive ? "opacity-100" : "opacity-0"
+                                    : "opacity-0 group-hover:opacity-100 data-[selected=true]:opacity-100",
+                                    isSelectionModeActive ? "cursor-pointer" : "cursor-default"
+                                )}
                                 data-selected={selectedMessages.includes(message.id)}
                             >
                                 <Checkbox
@@ -1068,49 +1123,49 @@ export function AdminDashboard() {
                   </CardContent>
                 </Card>
               ) : isMobile ? (
-                 <div className="flex-1 flex flex-col">
+                 <div className="flex-1 flex flex-col overflow-hidden">
                     <div className="p-4 text-xl font-semibold border-b sticky top-0 bg-background z-10">Tickets</div>
                     {tickets.length > 0 ? (
                         <ScrollArea className="flex-1">
                             {tickets.map((ticket) => (
-                                <Link key={ticket.id} href={`/admin?ticketId=${ticket.id}`} className="contents">
-                                    <div
-                                        className={cn(
-                                            "border-b p-4 cursor-pointer hover:bg-accent/50",
-                                            ticket.status === 'needs-attention' && 'animate-attention'
-                                        )}
-                                    >
-                                        <div className="flex justify-between w-full items-center gap-4">
-                                            <div className="flex items-center gap-3 min-w-0">
-                                                <Avatar className="w-9 h-9 flex-shrink-0">
-                                                    <AvatarImage src={ticket.customer.avatar} />
-                                                    <AvatarFallback>
-                                                    {ticket.customer.name.charAt(0)}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                                <div className="min-w-0">
-                                                    <div className="font-semibold truncate">
-                                                        {ticket.customer.name}
-                                                    </div>
-                                                    <div className="text-xs text-muted-foreground/80 mt-1">
-                                                        {formatDistanceToNow(new Date(ticket.lastUpdate), { addSuffix: true })}
-                                                    </div>
+                                <Link
+                                    key={ticket.id}
+                                    href={`/admin?ticketId=${ticket.id}`}
+                                    className={cn(
+                                        "block border-b p-4 cursor-pointer hover:bg-accent/50",
+                                        ticket.status === 'needs-attention' && 'animate-attention'
+                                    )}
+                                >
+                                    <div className="flex justify-between w-full items-center gap-4">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <Avatar className="w-9 h-9 flex-shrink-0">
+                                                <AvatarImage src={ticket.customer.avatar} />
+                                                <AvatarFallback>
+                                                {ticket.customer.name.charAt(0)}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <div className="min-w-0">
+                                                <div className="font-semibold truncate">
+                                                    {ticket.customer.name}
+                                                </div>
+                                                <div className="text-xs text-muted-foreground/80 mt-1">
+                                                    {formatDistanceToNow(new Date(ticket.lastUpdate), { addSuffix: true })}
                                                 </div>
                                             </div>
-                                            <Badge
-                                                variant={
-                                                ticket.status === "closed" ? "outline" :
-                                                ticket.status === "agent" ? "default" :
-                                                ticket.status === "needs-attention" ? "destructive" : "secondary"
-                                                }
-                                            >
-                                                {ticket.status}
-                                            </Badge>
                                         </div>
-                                        <p className="text-sm text-muted-foreground w-full truncate mt-2">
-                                        {ticket.summary || "..."}
-                                        </p>
+                                        <Badge
+                                            variant={
+                                            ticket.status === "closed" ? "outline" :
+                                            ticket.status === "agent" ? "default" :
+                                            ticket.status === "needs-attention" ? "destructive" : "secondary"
+                                            }
+                                        >
+                                            {ticket.status}
+                                        </Badge>
                                     </div>
+                                    <p className="text-sm text-muted-foreground w-full truncate mt-2">
+                                    {ticket.summary || "..."}
+                                    </p>
                                 </Link>
                             ))}
                         </ScrollArea>
